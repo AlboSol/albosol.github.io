@@ -5,36 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0b0f" />
   <title>Ruokasi</title>
-  <link rel="manifest" href="manifest.json?v=20260204221201">
+  <link rel="manifest" href="manifest.json?v=20260204230507">
   <link rel="icon" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
-  <link rel="stylesheet" href="style.css?v=20260204221201">
-  <style>
-    /* On-screen error overlay for iOS (helps debugging when JS crashes) */
-    #__err_overlay {
-      position: fixed; inset: 12px 12px auto 12px;
-      background: rgba(220,38,38,.18);
-      border: 1px solid rgba(220,38,38,.55);
-      color: #fff; padding: 12px 12px;
-      border-radius: 14px;
-      font-family: ui-sans-serif, system-ui, -apple-system;
-      font-size: 13px; line-height: 1.25;
-      z-index: 99999;
-      display:none;
-      white-space: pre-wrap;
-    }
-    #__err_overlay b { display:block; margin-bottom:6px; }
-  </style>
+  <link rel="stylesheet" href="style.css?v=20260204230507">
 </head>
 <body>
-  <div id="__err_overlay"></div>
-
+  <div id="__err_overlay" style="display:none;position:fixed;inset:12px 12px auto 12px;background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.55);color:#fff;padding:12px;border-radius:14px;font-family:system-ui,-apple-system;font-size:13px;line-height:1.25;z-index:99999;white-space:pre-wrap"></div>
   <script>
     (function() {
       const box = document.getElementById("__err_overlay");
       function show(msg) {
         box.style.display = "block";
-        box.innerHTML = "<b>Ruokasi: JavaScript-virhe</b>" + msg;
+        box.innerHTML = "<b>Ruokasi: JavaScript-virhe</b>\n" + msg;
       }
       window.addEventListener("error", function(e) {
         try {
@@ -51,19 +34,15 @@
     })();
   </script>
 
-  <!-- App -->
-  <script src="app.js?v=20260204221201" defer></script>
+  <script src="app.js?v=20260204230507" defer></script>
 
   <script>
-    // SW: register + request update check on each launch
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const reg = await navigator.serviceWorker.register('sw.js?v=20260204221201', { scope: './' });
+          const reg = await navigator.serviceWorker.register('sw.js?v=20260204230507', { scope: './' });
           try { reg.update(); } catch(_) {}
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       });
     }
   </script>
