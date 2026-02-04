@@ -2,46 +2,48 @@
 <html lang="fi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ruokasi – Päivitys / välimuistin nollaus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ruokasi – reset</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;line-height:1.35}
-    .card{max-width:720px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;padding:18px}
-    .muted{color:#6b7280}
-    .btn{display:inline-block;margin-top:12px;padding:10px 14px;border-radius:12px;border:1px solid #111827;text-decoration:none}
+    body { font-family: system-ui, -apple-system; padding: 20px; background:#0b0b0f; color:#fff; }
+    .card { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 16px; }
+    code { background: rgba(0,0,0,.25); padding:2px 6px; border-radius:8px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Ruokasi – Päivitys</h1>
-    <p class="muted">
-      Tämä sivu nollaa vanhan service worker -välimuistin (iOS/PWA ongelma) ja palauttaa sovelluksen päivittämään oikein.
-    </p>
-    <p id="status">Nollataan…</p>
-    <a class="btn" href="/" id="fallback" style="display:none">Palaa Ruokasiin</a>
+    <h2>Ruokasi – nollaus</h2>
+    <p>Poistan vanhat välimuistit ja Service Worker -asennukset. Hetken kuluttua palaan sovellukseen.</p>
+    <p><code>build 20260204221201</code></p>
+    <div id="status">Käynnistetään…</div>
   </div>
 
-<script>
-(async () => {
-  const status = document.getElementById('status');
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) { await r.unregister(); }
-    }
-    if (window.caches && caches.keys) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-    status.textContent = "Valmis. Ohjataan takaisin Ruokasiin…";
-    const url = new URL(location.origin + "/");
-    url.searchParams.set("v", Date.now().toString());
-    location.replace(url.toString());
-  } catch (e) {
-    status.textContent = "Nollaus epäonnistui. Palaa Ruokasiin ja päivitä sivu.";
-    document.getElementById('fallback').style.display = 'inline-block';
-  }
-})();
-</script>
+  <script>
+    (async function() {
+      const el = document.getElementById('status');
+      try {
+        el.textContent = "Poistetaan service workerit…";
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) {
+            try { await r.unregister(); } catch(e) {}
+          }
+        }
+        el.textContent = "Poistetaan välimuistit…";
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (const k of keys) {
+            try { await caches.delete(k); } catch(e) {}
+          }
+        }
+        el.textContent = "Valmis. Avataan Ruokasi…";
+      } catch (e) {
+        el.textContent = "Nollaus epäonnistui: " + (e && e.message ? e.message : e);
+      }
+      setTimeout(() => {
+        location.href = "/?v=20260204221201";
+      }, 800);
+    })();
+  </script>
 </body>
 </html>

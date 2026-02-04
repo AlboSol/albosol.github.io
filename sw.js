@@ -1,19 +1,19 @@
-/* Ruokasi SW hotfix: single fetch handler + network-first for shell */
-const CACHE = "ruokasi-hotfix-2026-02-04-1";
-const ASSETS = [
+// Ruokasi SW hotfix (single fetch handler) build 20260204221201
+const CACHE = "ruokasi-cache-20260204221201";
+const CORE = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./manifest.json",
   "./icon.png",
-  "./sw-reset.html"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await cache.addAll(ASSETS);
+    // Best-effort cache; network may be blocked during install
+    try { await cache.addAll(CORE.map(u => u + "?v=20260204221201")); } catch (_) {}
     self.skipWaiting();
   })());
 });
@@ -21,59 +21,48 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.map(k => (k === CACHE ? null : caches.delete(k))));
+    await Promise.all(keys.map(k => k.startsWith("ruokasi-cache-") && k !== CACHE ? caches.delete(k) : Promise.resolve()));
     await self.clients.claim();
   })());
 });
 
-// Network-first for app shell; cache-first for everything else.
+function isNavigation(request) {
+  return request.mode === "navigate" ||
+    (request.method === "GET" && request.headers.get("accept") && request.headers.get("accept").includes("text/html"));
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (req.method !== "GET") return;
-
   const url = new URL(req.url);
-  const accept = req.headers.get("accept") || "";
-  const isNav = req.mode === "navigate" || accept.includes("text/html");
-  const isShell =
-    isNav ||
-    url.pathname.endsWith("/index.html") ||
-    url.pathname.endsWith("/app.js") ||
-    url.pathname.endsWith("/style.css") ||
-    url.pathname.endsWith("/manifest.json") ||
-    url.pathname.endsWith("/icon.png") ||
-    url.pathname.endsWith("/sw-reset.html");
 
-  if (isShell) {
+  // Only handle same-origin
+  if (url.origin !== self.location.origin) return;
+
+  // Network-first for HTML so updates come through
+  if (isNavigation(req)) {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req, { cache: "no-store" });
         const cache = await caches.open(CACHE);
-        cache.put(req, fresh.clone());
+        cache.put("./index.html", fresh.clone());
         return fresh;
       } catch (e) {
-        const cached = await caches.match(req);
-        if (cached) return cached;
-        // last resort for nav: serve cached index if exists
-        if (isNav) {
-          const idx = await caches.match("./index.html");
-          if (idx) return idx;
-        }
-        return Response.error();
+        const cache = await caches.open(CACHE);
+        const cached = await cache.match("./index.html");
+        return cached || new Response("Offline", { status: 503, headers: { "Content-Type":"text/plain" } });
       }
     })());
     return;
   }
 
+  // Stale-while-revalidate for other assets
   event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-    try {
-      const fresh = await fetch(req);
-      const cache = await caches.open(CACHE);
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(req);
+    const fetchPromise = fetch(req).then((fresh) => {
       cache.put(req, fresh.clone());
       return fresh;
-    } catch (e) {
-      return Response.error();
-    }
+    }).catch(() => cached);
+    return cached || fetchPromise;
   })());
 });
