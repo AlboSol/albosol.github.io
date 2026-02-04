@@ -1,471 +1,685 @@
-/* Ruokasi app.js HOTFIX build 20260204222801
-   Fixes SyntaxError by replacing the entire app bootstrap with a clean implementation.
-*/
-(() => {
-  'use strict';
 
-  const APP_VERSION = '3.3.2-hotfix';
-  const LS_KEYS = {
-    primary: 'ruokasi.v2',
-    fallback: 'ruokasi.saved',
+/* Ruokasi v3.3.0.0 */
+const VERSION = "v3.3.3.0";
+let isDirty = false;
+const STORAGE_KEY = "ruokasi.v2";
+const LEGACY_KEY_1 = "ruokasi.saved";
+const MEAL_ORDER = ["aamiainen","lounas","välipala","päivällinen","iltapala","juomat","jälkiruoka"];
+const MEAL_LABEL = {
+  aamiainen:"Aamiainen", lounas:"Lounas", "välipala":"Välipala", "päivällinen":"Päivällinen", iltapala:"Iltapala", juomat:"Juomat", jälkiruoka:"Jälkiruoat"
+};
+const MEAL_COLORS = {"aamiainen": "#2563EB", "lounas": "#16A34A", "päivällinen": "#F97316", "välipala": "#7C3AED", "iltapala": "#0D9488", "juomat":"#06B6D4", "jälkiruoka":"#EC4899", "muut": "#64748B"};
+
+function $(id){ return document.getElementById(id); }
+function todayKey(d){ d=d||new Date(); const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return x.toISOString().slice(0,10); }
+function fmtFiDate(iso){ const a=iso.split("-"); return a[2]+"."+a[1]+"."+a[0]; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function round1(x){ return Math.round(x*10)/10; }
+function esc(s){ return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+function foodU(name, kcal, p, c, f, unit, gramsPerUnit, maxUnits=6, stepUnits=0.5){
+  return { name, per100:{kcal,p,c,f}, unit, gramsPerUnit, maxUnits, stepUnits };
+}
+const presets = {
+  aamiainen: [
+    foodU("Puuro (kaurahiutaleet)", 380, 13, 60, 7, "dl hiutaleita", 40, 6, 0.25),
+    foodU("Maustamaton rahka", 67, 12, 3.5, 0.2, "purkki", 200, 2, 0.25),
+    foodU("Marjat", 50, 1, 12, 0.2, "dl", 60, 6, 0.5),
+    foodU("Kananmuna", 155, 13, 1.1, 11, "kpl", 55, 6, 0.5),
+    foodU("Ruisleipä", 220, 6, 40, 3, "viipale", 35, 6, 0.5),
+    foodU("Paahtoleipä", 265, 8, 49, 3.5, "viipale", 30, 6, 0.5),
+    foodU("Juusto 15%", 280, 27, 0, 15, "viipale", 10, 8, 0.5),
+    foodU("Kinkku / leikkele", 110, 20, 2, 2, "siivu", 8, 8, 0.5),
+    foodU("Maapähkinävoi", 600, 25, 20, 50, "rkl", 15, 6, 0.5),
+    foodU("Voi", 717, 1, 0, 81, "rkl", 14, 4, 0.5),
+    foodU("Mehu", 45, 0.5, 10, 0, "dl", 100, 6, 0.5),
+    foodU("Kahvimaito", 50, 3, 4, 2, "rkl", 15, 6, 0.5)
+  ],
+  lounas: [
+    foodU("Kanafile", 110, 23, 0, 2, "file", 120, 4, 0.25),
+    foodU("Riisi (keitetty)", 130, 2.4, 28, 0.3, "dl", 70, 6, 0.5),
+    foodU("Peruna", 77, 2, 17, 0.1, "kpl", 80, 6, 0.5),
+    foodU("Kasvikset", 30, 2, 5, 0.2, "annos", 250, 3, 0.25),
+    foodU("Öljy", 884, 0, 0, 100, "tl", 5, 10, 0.5),
+    foodU("Ruisleipä", 220, 6, 40, 3, "viipale", 35, 6, 0.5)
+  ],
+  "välipala": [
+    foodU("Rahka", 67, 12, 3.5, 0.2, "purkki", 200, 2, 0.25),
+    foodU("Marjat", 50, 1, 12, 0.2, "dl", 60, 6, 0.5),
+    foodU("Banaani", 89, 1.1, 23, 0.3, "kpl", 120, 3, 0.5),
+    foodU("Pähkinät", 620, 18, 14, 55, "kourallinen", 30, 6, 0.5),
+    foodU("Proteiinijuoma", 60, 10, 4, 1, "pullo", 250, 2, 0.25)
+  ],
+  "päivällinen": [
+    foodU("Kanafile", 110, 23, 0, 2, "file", 120, 4, 0.25),
+    foodU("Lohi", 200, 20, 0, 13, "file", 150, 3, 0.25),
+    foodU("Jauheliha 10%", 176, 20, 0, 10, "annos", 150, 4, 0.25),
+    foodU("Kasvikset", 30, 2, 5, 0.2, "annos", 250, 3, 0.25),
+    foodU("Riisi (keitetty)", 130, 2.4, 28, 0.3, "dl", 70, 6, 0.5),
+    foodU("Peruna", 77, 2, 17, 0.1, "kpl", 80, 6, 0.5),
+    foodU("Öljy", 884, 0, 0, 100, "tl", 5, 10, 0.5),
+    foodU("Ruisleipä", 220, 6, 40, 3, "viipale", 35, 6, 0.5),
+    foodU("Kukkakaali", 25, 2, 3, 0.2, "kukkosiivu", 25, 10, 1)
+  ],
+  iltapala: [
+    foodU("Ruisleipä", 220, 6, 40, 3, "viipale", 35, 6, 0.5),
+    foodU("Paahtoleipä", 265, 8, 49, 3.5, "viipale", 30, 6, 0.5),
+    foodU("Juusto 15%", 280, 27, 0, 15, "viipale", 10, 8, 0.5),
+    foodU("Rahka", 67, 12, 3.5, 0.2, "purkki", 200, 2, 0.25),
+    foodU("Marjat", 50, 1, 12, 0.2, "dl", 60, 6, 0.5),
+    foodU("Kananmuna", 155, 13, 1.1, 11, "kpl", 55, 6, 0.5)
+  ]
+};
+
+
+/* ---- State ---- */
+function defaultState(){
+  return {
+    selectedDay: todayKey(),
+    goals: { p:140, c:170, f:70 },
+    target: { baseKcal:2000, workoutKcal:0, stepGoal:0, sleepH:0 },
+    products: { custom: [], meta: {} },
+    days: {}, // iso -> { entries: [] }
+    suggest: { alt:0, mealPlan: null }
   };
+}
+function ensureDay(s, iso){ if(!s.days) s.days={}; if(!s.days[iso]) s.days[iso]={entries:[]}; }
 
-  const MEALS = [
-    { id:'aamiainen', label:'Aamiainen' },
-    { id:'lounas', label:'Lounas' },
-    { id:'valipala', label:'Välipala' },
-    { id:'paivallinen', label:'Päivällinen' },
-    { id:'iltapala', label:'Iltapala' },
-  ];
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
 
-  const CATEGORIES = [
-    'Aamiainen','Lounas','Päivällinen','Välipala','Iltapala','Juomat','Jälkiruoat'
-  ];
-
-  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-  const todayISO = () => new Date().toISOString().slice(0,10);
-  const fmtDateFI = (iso) => {
-    const [y,m,d]=iso.split('-');
-    return `${d}.${m}.${y}`;
-  };
-
-  // ---------- Storage ----------
-  function loadState() {
-    let raw = localStorage.getItem(LS_KEYS.primary);
-    if (!raw) raw = localStorage.getItem(LS_KEYS.fallback);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        return migrate(parsed);
-      } catch(e) {
-        console.warn('State parse failed', e);
-      }
+function loadState(){
+  let raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw){
+    // migrate from legacy key if exists
+    const legacy = localStorage.getItem(LEGACY_KEY_1);
+    if(legacy){
+      try{
+        const s = JSON.parse(legacy);
+        // keep legacy structure but save under primary key
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+        raw = localStorage.getItem(STORAGE_KEY);
+      }catch(e){}
     }
-    return migrate(null);
   }
-
-  function saveState(state) {
-    localStorage.setItem(LS_KEYS.primary, JSON.stringify(state));
-  }
-
-  function migrate(prev) {
-    const base = {
-      version: APP_VERSION,
-      products: [],
-      days: {},
-    };
-    const s = prev && typeof prev === 'object' ? prev : base;
-    if (!s.version) s.version = APP_VERSION;
-    if (!Array.isArray(s.products)) s.products = [];
-    if (!s.days || typeof s.days !== 'object') s.days = {};
+  if(!raw){ const s=defaultState(); ensureDay(s,s.selectedDay); return s; }
+  try {
+    const s=JSON.parse(raw);
+    // Always open today by default
+    s.selectedDay=todayKey();
+    if(!s.days) s.days={};
+    ensureDay(s,s.selectedDay);
+    if(!s.products) s.products={custom:[],meta:{}}; if(!s.products.meta) s.products.meta={};
+    if(!s.target) s.target={ baseKcal:2000, workoutKcal:0, stepGoal:0, sleepH:0 };
+    if(!s.goals) s.goals={ p:140, c:170, f:70 };
+    if(!s.suggest) s.suggest={ alt:0, mealPlan:null };
     return s;
+  } catch(e) {
+    const s=defaultState(); ensureDay(s,s.selectedDay); return s;
   }
+}
 
-  // ---------- Calculations ----------
-  function getDay(state, iso) {
-    if (!state.days[iso]) {
-      state.days[iso] = {
-        target: {
-          baseKcal: 2000,
-          workoutKcal: 0,
-          stepsGoal: 0,
-          sleepHours: 0,
-        },
-        entries: []
-      };
-    }
-    return state.days[iso];
+let state = loadState();
+let pendingDay = null;
+let currentMeal = "aamiainen";
+let lastSuggestion = null;
+
+function dayEntries(){ ensureDay(state,state.selectedDay); return state.days[state.selectedDay].entries; }
+
+function computeTargetKcal(){ return Math.round((+state.target.baseKcal||0) + (+state.target.workoutKcal||0) + (+state.target.stepGoal||0)*0.04); }
+
+function markDirty(){
+  isDirty = true;
+  // autosave immediately
+  try{ saveState(); }catch(e){}
+  updateSaveBtn();
+}
+function findProduct(pid){
+  if(pid.startsWith("preset:")){
+    const parts=pid.split(":");
+    const meal=parts[1]; const idx=+parts[2];
+    const p=(presets[meal]||[])[idx]; if(!p) return null;
+    const base={ id:pid, name:p.name, per100:p.per100, unit:p.unit, gramsPerUnit:p.gramsPerUnit, category:meal, isPreset:true };
+    return applyOverride(base,pid);
   }
+  const p=(state.products.custom||[]).find(x=>x.id===pid) || null;
+  if(!p) return null;
+  const m=metaFor(pid);
+  if(m.hidden) return null;
+  return Object.assign({}, p, { isPreset:false, isFavorite: !!m.favorite || !!p.isFavorite, usage: m.usage||0 });
+}
 
-  function calcDailyTargetKcal(day) {
-    const t = day.target || {};
-    const base = Number(t.baseKcal)||0;
-    const wk = Number(t.workoutKcal)||0;
-    const steps = Number(t.stepsGoal)||0;
-    const stepsKcal = steps * 0.04;
-    return Math.round(base + wk + stepsKcal);
-  }
+function getEntry(meal, pid){ return dayEntries().find(e=>e.meal===meal && e.productId===pid) || null; }
+function setEntry(meal, pid, units){
+  const prod=findProduct(pid); if(!prod) return;
+  const entries=dayEntries();
+  const idx=entries.findIndex(e=>e.meal===meal && e.productId===pid);
+  if(units<=0){ if(idx>=0) entries.splice(idx,1); markDirty(); return; }
+  const grams = units*(+prod.gramsPerUnit||0);
+  const per100=prod.per100||{kcal:0,p:0,c:0,f:0};
+  const totals={ kcal: grams/100*(+per100.kcal||0), p: grams/100*(+per100.p||0), c: grams/100*(+per100.c||0), f: grams/100*(+per100.f||0) };
+  const entry={ id:(idx>=0?entries[idx].id:crypto.randomUUID()), productId:pid, meal:meal, name:prod.name, per100:per100, unit:prod.unit, gramsPerUnit:prod.gramsPerUnit, units:units, grams:grams, totals:totals };
+  if(idx>=0) entries[idx]=entry; else entries.push(entry);
+  if(!prod.isPreset){ const c=state.products.custom.find(x=>x.id===pid); if(c && c.isNew) c.isNew=false; }
+  const m=metaFor(pid); if(m && units>0){ m.usage = (m.usage||0) + 1; }
+  markDirty();
+}
 
-  function entryTotals(entries) {
-    return entries.reduce((acc,e)=>{
-      acc.kcal += e.kcal||0;
-      acc.p += e.p||0;
-      acc.c += e.c||0;
-      acc.f += e.f||0;
-      return acc;
-    }, {kcal:0,p:0,c:0,f:0});
-  }
+function totalsByMeal(){
+  const by={}; MEAL_ORDER.forEach(m=>by[m]={kcal:0,p:0,c:0,f:0});
+  dayEntries().forEach(e=>{ const m=e.meal; if(!by[m]) by[m]={kcal:0,p:0,c:0,f:0}; by[m].kcal+=e.totals.kcal; by[m].p+=e.totals.p; by[m].c+=e.totals.c; by[m].f+=e.totals.f; });
+  return by;
+}
+function dayTotals(){
+  const by=totalsByMeal();
+  const sum={kcal:0,p:0,c:0,f:0};
+  Object.keys(by).forEach(k=>{ const v=by[k]; sum.kcal+=v.kcal; sum.p+=v.p; sum.c+=v.c; sum.f+=v.f; });
+  return {by:by, sum:sum};
+}
 
-  function aggregateByProduct(entries) {
-    const map = new Map();
-    for (const e of entries) {
-      const key = e.productId;
-      const cur = map.get(key) || {productId:key, kcal:0,p:0,c:0,f:0, grams:0};
-      cur.kcal += e.kcal||0;
-      cur.p += e.p||0; cur.c += e.c||0; cur.f += e.f||0;
-      cur.grams += e.grams||0;
-      map.set(key, cur);
-    }
-    return Array.from(map.values());
-  }
+/* ---- UI ---- */
+function updateHeader(){
+  $("versionBadge").textContent = VERSION;
+  const isToday = (state.selectedDay===todayKey());
+  $("btnDate").style.color = isToday ? "" : "#DC2626";
+  $("dayTitle").textContent = isToday ? "Tänään" : "Päivä";
+  $("todayLabel").textContent = fmtFiDate(state.selectedDay);
+}
+function updateSaveBtn(){ const b=$("btnSaveOk"); if(!b) return; b.textContent="OK"; b.classList.add("is-clean"); b.classList.remove("is-dirty"); }
 
-  function setProductTotalForDay(day, productId, mealId, gramsNew, computed) {
-    day.entries = day.entries.filter(e => e.productId !== productId);
-    if (gramsNew <= 0) return;
-    day.entries.push({
-      productId,
-      mealId,
-      amount: computed.amount,
-      unit: computed.unit,
-      grams: gramsNew,
-      kcal: computed.kcal,
-      p: computed.p, c: computed.c, f: computed.f,
-      ts: Date.now(),
+function renderRing(by, target){
+  const g=$("ringSegs");
+  g.innerHTML="";
+  const r=46;
+  const C=2*Math.PI*r;
+  let offset=0;
+  MEAL_ORDER.forEach(meal=>{
+    const kcal=(by[meal]?by[meal].kcal:0);
+    const len=(kcal/target)*C;
+    if(len<=0.5) return;
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("class","ringSeg");
+    c.setAttribute("cx","60"); c.setAttribute("cy","60"); c.setAttribute("r",String(r));
+    c.setAttribute("stroke", MEAL_COLORS[meal] || "#64748B");
+    c.setAttribute("stroke-dasharray", String(len)+" "+String(C-len));
+    c.setAttribute("stroke-dashoffset", String(-offset));
+    g.appendChild(c);
+    offset += len;
+  });
+}
+
+function renderMacroBars(by){
+  function fill(containerId, key, goal){
+    const el=$(containerId); el.innerHTML="";
+    MEAL_ORDER.forEach(meal=>{
+      const v=(by[meal]?by[meal][key]:0);
+      const pct = clamp((v/goal)*100,0,100);
+      if(pct<0.2) return;
+      const d=document.createElement("div");
+      d.style.width=pct+"%";
+      d.style.background = MEAL_COLORS[meal] || "#64748B";
+      el.appendChild(d);
     });
   }
+  fill("pSegs","p", +state.goals.p||1);
+  fill("cSegs","c", +state.goals.c||1);
+  fill("fSegs","f", +state.goals.f||1);
+}
 
-  function computeFromProduct(product, grams) {
-    const kcal = Math.round((product.kcal100||0) * grams / 100);
-    const p = Math.round((product.p||0) * grams / 100);
-    const c = Math.round((product.c||0) * grams / 100);
-    const f = Math.round((product.f||0) * grams / 100);
-    return { kcal, p, c, f, amount: grams, unit: 'g' };
+function renderProductList(){
+  const list=$("productList");
+  list.innerHTML="";
+  const prods = allProducts().filter(p=>(p.category||"aamiainen")===meal);
+  prods.sort((a,b)=>{
+    const af=!!a.isFavorite, bf=!!b.isFavorite;
+    if(af!==bf) return bf-af;
+    const au=a.usage||0, bu=b.usage||0;
+    if(au!==bu) return bu-au;
+    return a.name.localeCompare(b.name,"fi");
+  });
+  prods.forEach(p=>{
+    const row=document.createElement("div");
+    row.className="listRow";
+    row.dataset.pid=p.id;
+
+    const star=document.createElement("div");
+    star.className="star";
+    star.style.width="16px";
+    star.textContent = (p.isNew) ? "⭐" : "";
+
+    const heart=document.createElement("button");
+    heart.type="button";
+    heart.className="heartBtn";
+    heart.textContent = p.isFavorite ? "❤️" : "🤍";
+    heart.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      const m=metaFor(p.id);
+      m.favorite = !m.favorite;
+      markDirty();
+      renderProductList();
+      renderMealPlan();
+  computeSuggestion(true);
+    });
+
+    const main=document.createElement("div");
+    main.className="rowMain";
+    const kcal1=Math.round((+p.gramsPerUnit||0)/100*(+p.per100.kcal||0));
+    main.innerHTML = '<div class="rowTitle"><div class="name">'+esc(p.name)+'</div></div><div class="rowMeta">1 '+esc(p.unit||"yks")+' • '+kcal1+' kcal</div>';
+
+    row.appendChild(star); row.appendChild(heart); row.appendChild(main);
+    row.addEventListener("click", function(){ openProductModal(p.id); });
+    list.appendChild(row);
+  });
+}
+
+
+/* Product modal */
+let pm={pid:null, units:1, entryMeal:null};
+function openProductModal(pid){
+  pm.pid=pid;
+  pm.entryMeal=currentMeal;
+  const e=getEntry(currentMeal,pid);
+  pm.units = e ? e.units : 1;
+  const prod=findProduct(pid);
+  $("pmTitle").textContent = prod ? prod.name : "Tuote";
+  renderProductModalBody();
+  show("productModal");
+}
+function renderProductModalBody(){
+  const prod=findProduct(pm.pid); if(!prod) return;
+  const per100=prod.per100||{kcal:0,p:0,c:0,f:0};
+  const grams=pm.units*(+prod.gramsPerUnit||0);
+  const kcal=Math.round(grams/100*(+per100.kcal||0));
+  const p=round1(grams/100*(+per100.p||0));
+  const c=round1(grams/100*(+per100.c||0));
+  const f=round1(grams/100*(+per100.f||0));
+  $("pmBody").innerHTML =
+    '<div class="row row--tight">'+
+      '<button class="ghost" type="button" id="pmMinus">−</button>'+
+      '<div style="margin:0 8px;font-weight:750">'+pm.units+' '+esc(prod.unit||"yks")+'</div>'+
+      '<button class="ghost" type="button" id="pmPlus">+</button>'+
+      '<div class="muted" style="margin-left:auto">'+Math.round(grams)+' g</div>'+
+    '</div>'+
+    '<div class="kpi-grid kpi-grid--2" style="margin-top:10px">'+
+      '<div class="kpi"><div class="kpi__label">Kalorit</div><div class="kpi__value">'+kcal+'<span class="unit">kcal</span></div></div>'+
+      '<div class="kpi"><div class="kpi__label">Makrot</div><div class="kpi__value" style="font-size:16px">'+p+'P • '+c+'H • '+f+'R</div></div>'+
+    '</div>'+
+    (prod.isPreset ? '' : '<div class="row row--tight" style="margin-top:10px"><button class="ghost" type="button" id="pmEdit">Muokkaa</button></div>')+
+    '<div id="pmEditArea" style="display:none;margin-top:10px"></div>';
+  $("pmMinus").onclick=function(){ pm.units=Math.max(0, pm.units-(prod.stepUnits||1)); renderProductModalBody(); };
+  $("pmPlus").onclick=function(){ pm.units=pm.units+(prod.stepUnits||1); renderProductModalBody(); };
+  if(!prod.isPreset) $("pmEdit").onclick=function(){ openAddProduct(prod.id); };
+}
+
+function flashRow(pid){ const row=document.querySelector('.listRow[data-pid="'+pid+'"]'); if(!row) return; row.classList.add("is-flash"); setTimeout(()=>row.classList.remove("is-flash"), 500); }
+
+
+function confirmYesNo(text, title, onYes){
+  $("cmTitle").textContent = title || "Vahvista";
+  $("cmText").textContent = text || "–";
+  show("confirmModal");
+  const cleanup=()=>{
+    $("btnCmYes").onclick=null; $("btnCmNo").onclick=null; $("btnCmClose").onclick=null;
+    hide("confirmModal");
+  };
+  $("btnCmYes").onclick=function(){ cleanup(); onYes && onYes(); };
+  $("btnCmNo").onclick=cleanup;
+  $("btnCmClose").onclick=cleanup;
+}
+
+function deleteProduct(pid){
+  if(pid.startsWith("preset:")){
+    const m=metaFor(pid);
+    m.hidden=true;
+    m.favorite=false;
+    m.override=null;
+    markDirty();
+    return;
   }
+  const idx=(state.products.custom||[]).findIndex(x=>x.id===pid);
+  if(idx>=0) state.products.custom.splice(idx,1);
+  const m=metaFor(pid);
+  m.hidden=true; m.favorite=false;
+  markDirty();
+}
 
-  // ---------- UI helpers ----------
-  function el(tag, attrs={}, ...children) {
-    const node = document.createElement(tag);
-    for (const [k,v] of Object.entries(attrs||{})) {
-      if (k === 'class') node.className = v;
-      else if (k === 'style') node.setAttribute('style', v);
-      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
-      else if (v !== null && v !== undefined) node.setAttribute(k, String(v));
+ /* Modals */
+function show(id){ $(id).classList.remove("is-hidden"); }
+function hide(id){ $(id).classList.add("is-hidden"); }
+
+/* Goal modal */
+function openGoal(){
+  $("gBase").value=state.target.baseKcal;
+  $("gWorkout").value=state.target.workoutKcal;
+  $("gSteps").value=state.target.stepGoal;
+  $("gSleep").value=state.target.sleepH;
+  updateGoalPreview();
+  ["gBase","gWorkout","gSteps","gSleep"].forEach(id=>{ $(id).oninput=updateGoalPreview; });
+  show("goalModal");
+}
+function updateGoalPreview(){
+  const base=+($("gBase").value||0), w=+($("gWorkout").value||0), steps=+($("gSteps").value||0);
+  $("gTotal").textContent = Math.round(base+w+steps*0.04);
+}
+function saveGoal(){
+  state.target.baseKcal=+($("gBase").value||0);
+  state.target.workoutKcal=+($("gWorkout").value||0);
+  state.target.stepGoal=+($("gSteps").value||0);
+  state.target.sleepH=+($("gSleep").value||0);
+  markDirty();
+  hide("goalModal");
+  renderTop();
+  renderMealPlan();
+  computeSuggestion(true);
+}
+
+/* Date handling */
+function openDate(){
+  $("datePick").value = state.selectedDay;
+  $("datePick").onchange = function(){ requestDaySwitch($("datePick").value); };
+  show("dateModal");
+}
+function requestDaySwitch(nextDay){ if(!nextDay || nextDay===state.selectedDay){ hide("dateModal"); return; } switchDay(nextDay); }
+function switchDay(nextDay){
+  hide("dateModal");
+  state.selectedDay=nextDay;
+  ensureDay(state,nextDay);
+  updateHeader();
+  renderAll();
+  renderMealPlan();
+  computeSuggestion(true);
+}
+
+/* Day meals modal */
+function openDayMeals(){
+  const body=$("dayMealsBody");
+  const entries=dayEntries();
+  if(!entries.length){ body.innerHTML='<p class="muted">Ei kirjauksia tälle päivälle.</p>'; show("dayMealsModal"); return; }
+  const byMeal={}; MEAL_ORDER.forEach(m=>byMeal[m]=[]);
+  entries.forEach(e=>byMeal[e.meal].push(e));
+  body.innerHTML="";
+  MEAL_ORDER.forEach(meal=>{
+    const arr=byMeal[meal]; if(!arr.length) return;
+    let sk=0, sp=0, sc=0, sf=0;
+    arr.forEach(e=>{ sk+=e.totals.kcal; sp+=e.totals.p; sc+=e.totals.c; sf+=e.totals.f; });
+    const det=document.createElement("details");
+    det.className="details";
+    det.innerHTML='<summary><strong>'+MEAL_LABEL[meal]+'</strong> <span class="muted">— '+Math.round(sk)+' kcal • '+Math.round(sp)+'P '+Math.round(sc)+'H '+Math.round(sf)+'R</span></summary><div class="list" style="margin-top:10px"></div>';
+    const list=det.querySelector(".list");
+    arr.sort((a,b)=>a.name.localeCompare(b.name,"fi"));
+    arr.forEach(e=>{
+      const item=document.createElement("div");
+      item.className="listRow";
+      item.innerHTML='<div class="rowMain"><div class="rowTitle"><div class="name">'+esc(e.name)+'</div></div><div class="rowMeta">'+round1(e.units)+' '+esc(e.unit)+' • '+Math.round(e.totals.kcal)+' kcal</div></div>';
+      item.addEventListener("click", function(){ 
+        hide("dayMealsModal");
+        currentMeal=meal;
+        document.querySelectorAll("#mealSeg .seg__btn").forEach(btn=>btn.classList.toggle("is-on", btn.dataset.meal===currentMeal));
+        $("secAdd").open=true;
+        renderProductList();
+        openProductModal(e.productId);
+      });
+      list.appendChild(item);
+    });
+    body.appendChild(det);
+  });
+  show("dayMealsModal");
+}
+
+/* Add product modal + OFF */
+function openAddProduct(editId){
+  editId = editId || "";
+  $("customModal").dataset.editId = editId;
+  $("customTitle").textContent = editId ? "Muokkaa tuotetta" : "Lisää tuote";
+  $("offResults").innerHTML=""; $("offStatus").textContent="–";
+  $("offQuery").value="";
+  if(editId){
+    const p=findProduct(editId);
+    if(p){
+      $("cfName").value=p.name||"";
+      $("cfCat").value=p.category||currentMeal;
+      $("cfEan").value=p.ean||"";
+      $("cfKcal").value=+p.per100.kcal||0;
+      $("cfP").value=+p.per100.p||0;
+      $("cfC").value=+p.per100.c||0;
+      $("cfF").value=+p.per100.f||0;
+      $("cfUnit").value=p.unit||"yks";
+      $("cfGPU").value=+p.gramsPerUnit||100;
     }
-    for (const ch of children.flat()) {
-      if (ch === null || ch === undefined) continue;
-      node.appendChild(typeof ch === 'string' ? document.createTextNode(ch) : ch);
-    }
-    return node;
+  } else {
+    $("cfName").value=""; $("cfCat").value=currentMeal; $("cfEan").value="";
+    $("cfKcal").value=""; $("cfP").value=""; $("cfC").value=""; $("cfF").value="";
+    $("cfUnit").value=""; $("cfGPU").value="";
   }
-
-  function btn(label, opts={}) {
-    const { onClick, kind='ghost', title } = opts;
-    const styles = {
-      ghost: 'background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;',
-      primary:'background:#2563EB;border:1px solid rgba(255,255,255,.12);color:#fff;',
-      ok: 'background:#16A34A;border:1px solid rgba(255,255,255,.12);color:#fff;',
-      danger:'background:#DC2626;border:1px solid rgba(255,255,255,.12);color:#fff;',
-    };
-    return el('button', {
-      type:'button',
-      style:`padding:10px 12px;border-radius:12px;font-weight:700;${styles[kind]||styles.ghost}`,
-      title: title||'',
-      onclick: onClick||(()=>{})
-    }, label);
-  }
-
-  function modal(title, bodyNode, actionsNode) {
-    const overlay = el('div', {style:'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;'});
-    const card = el('div', {style:'width:min(520px,100%);background:#12121a;border:1px solid rgba(255,255,255,.14);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.4);'});
-    const head = el('div', {style:'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.10);font-size:16px;font-weight:900;'}, title);
-    const body = el('div', {style:'padding:14px 16px;'}, bodyNode);
-    const foot = el('div', {style:'padding:12px 16px;border-top:1px solid rgba(255,255,255,.10);display:flex;gap:10px;justify-content:flex-end;'}, actionsNode);
-    card.append(head, body, foot);
-    overlay.append(card);
-    overlay.addEventListener('click', (e)=>{ if (e.target === overlay) overlay.remove(); });
-    document.body.append(overlay);
-    return overlay;
-  }
-
-  function vxButtons({onYes, onNo, yesText='V', noText='X'}) {
-    return el('div', {style:'display:flex;gap:10px;'},
-      btn(yesText, {kind:'ok', onClick:onYes}),
-      btn(noText, {kind:'danger', onClick:onNo}),
-    );
-  }
-
-  // ---------- App state ----------
-  const state = loadState();
-  let selectedDay = todayISO();
-  let selectedMeal = 'aamiainen';
-  let selectedCategory = 'Aamiainen';
-
-  // ---------- Components ----------
-  function macroRow(label, value, goal) {
-    const pct = goal>0 ? clamp(value/goal, 0, 1) : 0;
-    return el('div', {},
-      el('div', {style:'display:flex;justify-content:space-between;opacity:.9;font-weight:800;'},
-        el('div', {}, label),
-        el('div', {style:'opacity:.75;'}, `${value} / ${goal} g`)
-      ),
-      el('div', {style:'height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px;'},
-        el('div', {style:`height:100%;width:${Math.round(pct*100)}%;background:#2563EB;`}, '')
-      )
-    );
-  }
-
-  function kpi(label, value, onClick) {
-    return el('div', {
-      style:'padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);cursor:pointer;',
-      onclick:onClick
-    },
-      el('div', {style:'opacity:.65;font-weight:800;font-size:12px;'}, label),
-      el('div', {style:'font-size:22px;font-weight:900;margin-top:4px;'}, value),
-    );
-  }
-
-  // ---------- Screens ----------
-  function render() {
-    document.body.style.margin='0';
-    document.body.style.background='#0b0b0f';
-    document.body.style.color='#fff';
-    document.body.style.fontFamily='system-ui,-apple-system,Segoe UI,Roboto';
-
-    const day = getDay(state, selectedDay);
-    const targetKcal = calcDailyTargetKcal(day);
-    const totals = entryTotals(day.entries);
-    const remaining = targetKcal - totals.kcal;
-    const pct = targetKcal>0 ? clamp(totals.kcal/targetKcal,0,1) : 0;
-
-    document.body.innerHTML = '';
-
-    const header = el('div', {style:'padding:14px;background:rgba(11,11,15,.92);backdrop-filter: blur(10px);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:10;'},
-      el('div', {style:'display:flex;align-items:center;gap:10px;'},
-        el('div', {style:'width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#38bdf8,#7c3aed);'}),
-        el('div', {style:'font-size:22px;font-weight:900;'}, 'Ruokasi'),
-        el('div', {style:'opacity:.7;font-weight:800;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);'}, APP_VERSION),
-        el('div', {style:'margin-left:auto;display:flex;gap:10px;'},
-          btn('📅', {kind: (selectedDay===todayISO()?'ghost':'primary'), onClick: openCalendar}),
-          btn('OK', {kind:'primary', onClick: ()=>modal('Tallennus', el('div', {}, 'Kaikki tallentuu automaattisesti.'), vxButtons({onYes: ()=>document.querySelector('div[style*="z-index:9999"]').remove?.(), onNo: ()=>document.querySelector('div[style*="z-index:9999"]').remove?.(), yesText:'OK', noText:'Sulje'}))})
-        )
-      ),
-      el('div', {style:'opacity:.75;margin-top:6px;font-size:13px;'}, (selectedDay===todayISO()?'Tänään':'Päivä') + ' • ' + fmtDateFI(selectedDay))
-    );
-
-    const ring = el('div', {style:'width:120px;height:120px;border-radius:999px;border:10px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;background:conic-gradient(#2563EB '+Math.round(pct*360)+'deg, rgba(255,255,255,.06) 0deg);'},
-      el('div', {style:'text-align:center;'},
-        el('div', {style:'font-size:34px;font-weight:900;line-height:1;'}, String(totals.kcal)),
-        el('div', {style:'opacity:.8;font-size:13px;margin-top:2px;'}, 'kcal')
-      )
-    );
-
-    const topCard = el('div', {style:'margin:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);padding:14px;'},
-      el('div', {style:'font-size:26px;font-weight:900;margin-bottom:10px;'}, selectedDay===todayISO()?'Tänään':'Päivä'),
-      el('div', {style:'display:flex;gap:16px;align-items:center;'},
-        ring,
-        el('div', {style:'display:flex;flex-direction:column;gap:6px;'},
-          el('div', {style:'opacity:.75;font-weight:900;'}, 'Jäljellä'),
-          el('div', {style:'font-size:28px;font-weight:900;'}, `${Math.max(0, remaining)} kcal`),
-          el('a', {href:'#', style:'color:#fff;opacity:.9;font-weight:800;', onclick:(e)=>{e.preventDefault(); openDayEatings();}}, 'Päivän syömiset')
-        )
-      ),
-      el('div', {style:'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;'},
-        kpi('Päivän tavoite', targetKcal+' kcal', openTargetModal),
-        kpi('Syöty', totals.kcal+' kcal', openDayEatings)
-      ),
-      el('div', {style:'margin-top:12px;display:flex;flex-direction:column;gap:12px;'},
-        macroRow('Proteiini', totals.p, 140),
-        macroRow('Hiilarit', totals.c, 170),
-        macroRow('Rasva', totals.f, 70),
-      )
-    );
-
-    const tabs = el('div', {style:'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;'},
-      ...MEALS.map(m=>btn(m.label, {kind:(selectedMeal===m.id?'primary':'ghost'), onClick: ()=>{selectedMeal=m.id; selectedCategory=m.label; render();}})),
-      btn('Juomat', {kind:(selectedCategory==='Juomat'?'primary':'ghost'), onClick: ()=>{selectedCategory='Juomat'; render();}}),
-      btn('Jälkiruoat', {kind:(selectedCategory==='Jälkiruoat'?'primary':'ghost'), onClick: ()=>{selectedCategory='Jälkiruoat'; render();}}),
-    );
-
-    const list = el('div', {style:'margin-top:10px;display:flex;flex-direction:column;gap:10px;'});
-    const products = state.products.filter(p=>p && !p.deleted && (p.category||'')===selectedCategory)
-      .sort((a,b)=> (b.fav===true)-(a.fav===true) || (b.usedOnce===true)-(a.usedOnce===true) || (b.createdAt||0)-(a.createdAt||0));
-
-    if (!products.length) list.append(el('div', {style:'opacity:.75;'}, 'Valitse tuote listalta.'));
-    else products.forEach(p=>list.append(productRow(p, day)));
-
-    const addFoodCard = el('div', {style:'margin:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);padding:14px;'},
-      el('div', {style:'font-size:22px;font-weight:900;'}, 'Lisää ruokaa'),
-      tabs,
-      list,
-      el('div', {style:'margin-top:10px;'}, btn('+ Lisää tuote', {kind:'ghost', onClick: openAddProductModal}))
-    );
-
-    document.body.append(header, topCard, addFoodCard);
-  }
-
-  function productRow(p, day) {
-    const heart = btn(p.fav ? '❤️' : '🤍', {kind:'ghost', onClick: (e)=>{ e.stopPropagation?.(); p.fav=!p.fav; saveState(state); render(); }});
-    heart.style.padding='8px 10px';
-    const row = el('div', {style:'display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);cursor:pointer;', onclick: ()=>openProductCard(p, day)},
-      heart,
-      el('div', {},
-        el('div', {style:'font-weight:900;'}, (p.usedOnce?'' :'⭐ ')+ (p.name||'Tuote')),
-        el('div', {style:'opacity:.65;font-size:12px;margin-top:2px;'}, p.category||'')
-      ),
-      el('div', {style:'opacity:.8;font-weight:800;'}, `${p.kcal100||0} /100g`)
-    );
-    return row;
-  }
-
-  function openProductCard(p, day) {
-    const agg = aggregateByProduct(day.entries).find(x=>x.productId===p.id);
-    let grams = agg ? Math.round(agg.grams||0) : (p.gramsPerUnit?Math.round(p.gramsPerUnit):100);
-
-    const gramsLabel = el('div', {style:'font-weight:900;font-size:20px;'}, `${grams} g`);
-    const refresh = ()=>{ gramsLabel.textContent = `${grams} g`; };
-
-    const body = el('div', {style:'display:flex;flex-direction:column;gap:12px;'},
-      el('div', {style:'display:flex;justify-content:space-between;align-items:center;gap:10px;'},
-        el('div', {style:'font-weight:900;font-size:18px;'}, p.name),
-        btn('🗑', {kind:'danger', onClick: ()=>{
-          const c = modal('Poista tuote?', el('div', {}, `Haluatko varmasti poistaa tuotteen "${p.name}"?`),
-            vxButtons({onYes: ()=>{p.deleted=true; saveState(state); c.remove(); m.remove(); render();}, onNo: ()=>c.remove()})
-          );
-        }})
-      ),
-      el('div', {style:'opacity:.8;'}, `Kategoria: ${p.category||''}`),
-      el('div', {style:'display:flex;gap:10px;align-items:center;'},
-        btn('−', {kind:'ghost', onClick: ()=>{ grams=Math.max(0, grams-10); refresh(); }}),
-        gramsLabel,
-        btn('+', {kind:'ghost', onClick: ()=>{ grams=grams+10; refresh(); }}),
-        btn('🗑', {kind:'danger', title:'Poista syödyistä', onClick: ()=>{
-          const c = modal('Poista syödyistä?', el('div', {}, `Poistetaanko "${p.name}" tältä päivältä?`),
-            vxButtons({onYes: ()=>{ setProductTotalForDay(getDay(state, selectedDay), p.id, selectedMeal, 0, {kcal:0,p:0,c:0,f:0,amount:0,unit:'g'}); saveState(state); c.remove(); m.remove(); render(); }, onNo: ()=>c.remove()})
-          );
-        }})
-      ),
-      el('div', {style:'opacity:.75;font-size:12px;'}, 'V = lisää/päivitä päivän kokonaismäärä • X = sulje')
-    );
-
-    const m = modal('Tuote', body, vxButtons({
-      onYes: ()=>{ const computed = computeFromProduct(p, grams); setProductTotalForDay(getDay(state, selectedDay), p.id, selectedMeal, grams, computed); p.usedOnce=true; saveState(state); m.remove(); render(); },
-      onNo: ()=>m.remove()
-    }));
-  }
-
-  function openAddProductModal() {
-    let name = '';
-    let category = selectedCategory || 'Aamiainen';
-
-    const nameInput = el('input', {placeholder:'Nimi', style:'width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;font-size:16px;', oninput:(e)=>{name=e.target.value;}});
-    const catSel = el('select', {style:'width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;font-size:16px;', onchange:(e)=>{category=e.target.value;}},
-      ...CATEGORIES.map(x=>el('option', {value:x, selected:x===category}, x))
-    );
-
-    const kcal = numField('Kalorit / 100g', 0);
-    const p = numField('Proteiini / 100g', 0);
-    const c = numField('Hiilarit / 100g', 0);
-    const f = numField('Rasva / 100g', 0);
-
-    const body = el('div', {style:'display:flex;flex-direction:column;gap:10px;'},
-      el('div', {style:'opacity:.75;font-size:12px;'}, 'Lisää oma tuote. (OFF-haku liitetään takaisin kun perusrunko toimii.)'),
-      nameInput, catSel,
-      kcal.node, p.node, c.node, f.node
-    );
-
-    const m = modal('Lisää tuote', body, vxButtons({
-      onYes: ()=>{ 
-        const id = 'p_' + Math.random().toString(36).slice(2,10);
-        state.products.push({
-          id,
-          name: (nameInput.value||'').trim() || 'Uusi tuote',
-          category,
-          unit:'g',
-          gramsPerUnit:100,
-          kcal100: Number(kcal.get())||0,
-          p: Number(p.get())||0,
-          c: Number(c.get())||0,
-          f: Number(f.get())||0,
-          ean:'',
-          fav:false,
-          deleted:false,
-          createdAt:Date.now(),
-          usedOnce:false
-        });
-        saveState(state);
-        m.remove();
-        render();
-      },
-      onNo: ()=>m.remove()
-    }));
-  }
-
-  function numField(label, initial) {
-    let val = Number(initial)||0;
-    const inp = el('input', {type:'number', inputmode:'decimal', step:'0.1', value:String(val), style:'width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;font-size:16px;', oninput:(e)=>{val=Number(e.target.value)||0;}});
-    const wrap = el('div', {},
-      el('div', {style:'opacity:.7;font-size:12px;font-weight:800;margin-bottom:6px;'}, label),
-      inp
-    );
-    return { node: wrap, get: ()=>val, set:(v)=>{val=Number(v)||0; inp.value=String(val);} };
-  }
-
-  function openTargetModal() {
-    const day = getDay(state, selectedDay);
-    const t = day.target;
-
-    const base = numField('Perustavoite (kcal)', t.baseKcal||0);
-    const wk = numField('Treenitavoite (kcal)', t.workoutKcal||0);
-    const steps = numField('Askeltavoite (askelta)', t.stepsGoal||0);
-    const sleep = numField('Uni (h)', t.sleepHours||0);
-
-    const computed = el('div', {style:'margin-top:8px;opacity:.9;font-weight:900;'}, '');
-
-    const refresh = ()=>{ 
-      t.baseKcal = base.get(); t.workoutKcal = wk.get(); t.stepsGoal = steps.get(); t.sleepHours = sleep.get();
-      computed.textContent = `Päivän tavoite yhteensä: ${calcDailyTargetKcal(day)} kcal`;
-    };
-    [base, wk, steps, sleep].forEach(f=>f.node.querySelector('input').addEventListener('input', refresh));
-    refresh();
-
-    const body = el('div', {style:'display:flex;flex-direction:column;gap:10px;'}, base.node, wk.node, steps.node, sleep.node, computed);
-    const m = modal('Päivän tavoite', body, vxButtons({
-      onYes: ()=>{ refresh(); saveState(state); m.remove(); render(); },
-      onNo: ()=>m.remove()
-    }));
-  }
-
-  function openCalendar() {
-    const input = el('input', {type:'date', value:selectedDay, style:'width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;font-size:16px;'});
-    const body = el('div', {style:'display:flex;flex-direction:column;gap:10px;'},
-      input,
-      btn('Tänään', {kind:'ghost', onClick: ()=>{ selectedDay = todayISO(); saveState(state); m.remove(); render(); }})
-    );
-    const m = modal('Valitse päivä', body, vxButtons({
-      onYes: ()=>{ selectedDay = input.value || todayISO(); saveState(state); m.remove(); render(); },
-      onNo: ()=>m.remove()
-    }));
-  }
-
-  function openDayEatings() {
-    const day = getDay(state, selectedDay);
-    const aggs = aggregateByProduct(day.entries);
-    const list = el('div', {style:'display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto;'});
-    if (!aggs.length) list.append(el('div', {style:'opacity:.75;'}, 'Ei kirjauksia tälle päivälle.'));
-    else for (const a of aggs) {
-      const p = state.products.find(x=>x.id===a.productId) || {name:'(poistettu tuote)'};
-      list.append(el('div', {style:'padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);cursor:pointer;', onclick: ()=>{ m.remove(); openProductCard(p, day); }},
-        el('div', {style:'font-weight:900;'}, p.name),
-        el('div', {style:'opacity:.75;margin-top:4px;'}, `Yhteensä ${Math.round(a.grams)} g • ${Math.round(a.kcal)} kcal • P ${Math.round(a.p)} / H ${Math.round(a.c)} / R ${Math.round(a.f)}`)
-      ));
-    }
-    const m = modal('Päivän syömiset', list, vxButtons({onYes: ()=>m.remove(), onNo: ()=>m.remove(), yesText:'OK', noText:'X'}));
-  }
-
-  // ---------- Boot ----------
+  show("customModal");
+}
+async function offSearch(){
+  const q=$("offQuery").value.trim(); if(!q) return;
+  $("offStatus").textContent="Haetaan…"; $("offResults").innerHTML="";
+  const btn=$("btnOffSearch"); if(btn){ btn.disabled=true; btn.textContent="Haetaan…"; }
   try {
-    selectedDay = todayISO(); // default to today on launch
-    if (!state.products.some(p=>p && p.id)) {
-      state.products.push(
-        {id:'p_kahvi', name:'Kahvi', category:'Juomat', unit:'g', gramsPerUnit:200, kcal100:1, p:0, c:0, f:0, ean:'', fav:false, deleted:false, createdAt:Date.now()-3, usedOnce:false},
-        {id:'p_kanfile', name:'Kanafile', category:'Päivällinen', unit:'g', gramsPerUnit:150, kcal100:110, p:23, c:0, f:2, ean:'', fav:false, deleted:false, createdAt:Date.now()-2, usedOnce:false},
-        {id:'p_rahka', name:'Rahka', category:'Välipala', unit:'g', gramsPerUnit:250, kcal100:65, p:11, c:3, f:0, ean:'', fav:false, deleted:false, createdAt:Date.now()-1, usedOnce:false},
-      );
-      saveState(state);
+    const url = /^\d{8,14}$/.test(q)
+      ? "https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(q)+".json"
+      : "https://world.openfoodfacts.org/cgi/search.pl?search_terms="+encodeURIComponent(q)+"&search_simple=1&action=process&json=1&page_size=8";
+    const res=await fetch(url); const data=await res.json();
+    const prods = data.product ? [data.product] : (data.products||[]);
+    if(!prods.length){ $("offStatus").textContent="Ei tuloksia"; $("offResults").innerHTML='<div class="muted">Ei tuloksia. Kokeile eri hakusanaa tai viivakoodia.</div>'; if(btn){btn.disabled=false;btn.textContent="Hae";} return; }
+    $("offStatus").textContent=prods.length+" tulosta";
+    prods.forEach(p=>{
+      const name = p.product_name || p.generic_name || "(nimetön)";
+      const n=p.nutriments||{};
+      const per100={ kcal:+(n["energy-kcal_100g"]||n["energy-kcal"]||0), p:+(n["proteins_100g"]||0), c:+(n["carbohydrates_100g"]||0), f:+(n["fat_100g"]||0) };
+      const row=document.createElement("div");
+      row.className="listRow";
+      row.innerHTML='<div class="rowMain"><div class="rowTitle"><div class="name">'+esc(name)+'</div></div><div class="rowMeta">'+Math.round(per100.kcal)+' kcal / 100g</div></div><button class="ghost" type="button">Käytä</button>';
+      row.querySelector("button").onclick=function(ev){ 
+        ev.stopPropagation();
+        $("cfName").value=name;
+        $("cfEan").value=p.code||"";
+        $("cfKcal").value=per100.kcal||0;
+        $("cfP").value=per100.p||0;
+        $("cfC").value=per100.c||0;
+        $("cfF").value=per100.f||0;
+        $("offResults").innerHTML=""; // close only results list
+        $("offStatus").textContent="Valittu";
+      };
+      $("offResults").appendChild(row);
+    });
+  } catch(e) {
+    $("offStatus").textContent="Virhe haussa";
+  } finally { if(btn){ btn.disabled=false; btn.textContent="Hae"; } }
+
+}
+function saveCustom(){
+  const name=$("cfName").value.trim(); if(!name) return;
+  const editId=$("customModal").dataset.editId;
+  const category=($("cfCat").value||currentMeal);
+  const obj={ id: editId||crypto.randomUUID(), name:name, category:category, ean:$("cfEan").value.trim(),
+    per100:{ kcal:+($("cfKcal").value||0), p:+($("cfP").value||0), c:+($("cfC").value||0), f:+($("cfF").value||0) },
+    unit:($("cfUnit").value.trim()||"yks"),
+    gramsPerUnit:+($("cfGPU").value||100),
+    isFavorite:false,
+    isNew: editId? false:true
+  };
+  if(editId){
+    if(editId.startsWith("preset:")){
+      const m=metaFor(editId);
+      m.override = { name: obj.name, category: obj.category, ean: obj.ean, per100: obj.per100, unit: obj.unit, gramsPerUnit: obj.gramsPerUnit };
+      m.hidden = false;
+    } else {
+      const i=state.products.custom.findIndex(x=>x.id===editId);
+      if(i>=0) state.products.custom[i]=Object.assign(state.products.custom[i], obj);
     }
-    render();
-  } catch (e) {
-    console.error('Boot failed', e);
-    document.body.innerHTML = '<div style="padding:16px;color:#fff;font-family:system-ui">Ruokasi ei käynnistynyt: '+String(e && e.message || e)+'</div>';
+  } else {
+    state.products.custom.unshift(obj);
+    const m=metaFor(obj.id); m.hidden=false;
   }
-})();
+  markDirty();
+  hide("customModal");
+  renderProductList();
+  renderMealPlan();
+  computeSuggestion(true);
+}
+
+
+/* Suggestions */
+function initMealPlan(){
+  if(!state.suggest.mealPlan){
+    state.suggest.mealPlan={};
+    MEAL_ORDER.forEach(m=>state.suggest.mealPlan[m]= (["juomat","jälkiruoka"].includes(m) ? false : true));
+  }
+}
+function renderMealPlan(){
+  initMealPlan();
+  const box=$("mealPlan"); if(!box) return;
+  box.innerHTML="";
+  MEAL_ORDER.forEach(meal=>{
+    if(["juomat","jälkiruoka"].includes(meal)) return; // keep UI focused on meals
+    const lab=document.createElement("label");
+    lab.className="mealchip";
+    lab.innerHTML = '<input type="checkbox" '+(state.suggest.mealPlan[meal]?'checked':'')+' /> <span>'+MEAL_LABEL[meal]+'</span>';
+    lab.querySelector("input").addEventListener("change",(ev)=>{
+      state.suggest.mealPlan[meal]=ev.target.checked;
+      markDirty();
+      renderMealPlan();
+  computeSuggestion(true);
+    });
+    box.appendChild(lab);
+  });
+}
+function pickSuggestMeal(){
+  initMealPlan();
+  const start=MEAL_ORDER.indexOf(currentMeal);
+  for(let k=0;k<MEAL_ORDER.length;k++){
+    const m=MEAL_ORDER[(start+k)%MEAL_ORDER.length];
+    if(state.suggest.mealPlan[m]) return m;
+  }
+  return currentMeal;
+}
+
+/* Suggestions */
+function computeSuggestion(resetAlt){
+  initMealPlan();
+  if(resetAlt) state.suggest.alt=0;
+  const meal = pickSuggestMeal();
+  const t=dayTotals().sum;
+  const targetK=computeTargetKcal();
+  const needK=targetK - t.kcal;
+  const needP=(+state.goals.p||0) - t.p;
+  const needC=(+state.goals.c||0) - t.c;
+  const needF=(+state.goals.f||0) - t.f;
+
+  const prods = allProducts().filter(p=>(p.category||"aamiainen")===meal);
+  let scored = prods.map(p=>{
+    const grams=+p.gramsPerUnit||0;
+    const per100=p.per100||{kcal:0,p:0,c:0,f:0};
+    const kcal=grams/100*(+per100.kcal||0);
+    const P=grams/100*(+per100.p||0);
+    const C=grams/100*(+per100.c||0);
+    const F=grams/100*(+per100.f||0);
+    let score=0;
+    if(needP>5) score += Math.min(P,needP)*3;
+    if(needC>5) score += Math.min(C,needC)*2;
+    if(needK>50) score += Math.min(kcal,needK)*0.01;
+    if(needF<0 && F>2) score -= F*2;
+    if(p.isFavorite) score += 30;
+    return {p:p,kcal:kcal,P:P,C:C,F:F,score:score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  const alt=state.suggest.alt||0;
+  const picked = scored.slice(alt, alt+3).filter(x=>x.score>0.1);
+  if(!picked.length){ $("suggestBox").innerHTML='<div class="muted">Hyvä! Päivä on tasapainossa.</div>'; lastSuggestion=null; return; }
+  lastSuggestion={ meal:meal, items:picked.map(x=>({productId:x.p.id, units:1})), totals:{kcal:picked.reduce((s,x)=>s+x.kcal,0), p:picked.reduce((s,x)=>s+x.P,0), c:picked.reduce((s,x)=>s+x.C,0), f:picked.reduce((s,x)=>s+x.F,0)}, why:[] };
+  const why=[];
+  if(needP>10) why.push("Painottaa proteiinia (puuttuu "+Math.round(needP)+" g)");
+  if(needC>10) why.push("Tasaa hiilareita (puuttuu "+Math.round(needC)+" g)");
+  if(needF<0) why.push("Rasva on jo täynnä → vältetään lisärasvaa");
+  lastSuggestion.why = why.slice(0,2);
+
+  renderSuggestion(needK,needP,needC,needF);
+}
+function renderSuggestion(needK,needP,needC,needF){
+  if(!lastSuggestion) return;
+  const mealLabel=MEAL_LABEL[lastSuggestion.meal] || lastSuggestion.meal;
+  let html='<div style="font-weight:750">Seuraavaksi: '+mealLabel+'</div>';
+  html+='<div class="muted" style="margin-top:6px">Jäljellä: '+Math.round(needK)+' kcal • P '+Math.round(Math.max(0,needP))+' • H '+Math.round(Math.max(0,needC))+' • R '+Math.round(Math.max(0,needF))+'</div>';
+  html+='<div style="margin-top:8px">';
+  lastSuggestion.items.forEach(it=>{ const p=findProduct(it.productId); if(p) html+='<div>• '+esc(p.name)+' — 1 '+esc(p.unit||"yks")+'</div>'; });
+  html+='</div>';
+  html+='<div class="muted" style="margin-top:6px">Yhteensä: '+Math.round(lastSuggestion.totals.kcal)+' kcal • P '+Math.round(lastSuggestion.totals.p)+' • H '+Math.round(lastSuggestion.totals.c)+' • R '+Math.round(lastSuggestion.totals.f)+'</div>';
+  if(lastSuggestion.why.length){
+    html+='<div style="margin-top:8px">';
+    lastSuggestion.why.forEach(w=>{ html+='<div class="muted">• '+esc(w)+'</div>'; });
+    html+='</div>';
+  }
+  $("suggestBox").innerHTML=html;
+}
+function applySuggestion(){
+  if(!lastSuggestion) return;
+  lastSuggestion.items.forEach(it=>{
+    const ex=getEntry(lastSuggestion.meal, it.productId);
+    const newUnits = (ex?ex.units:0) + it.units;
+    setEntry(lastSuggestion.meal, it.productId, newUnits);
+  });
+  renderTop();
+  renderProductList();
+  renderMealPlan();
+  computeSuggestion(true);
+
+}
+
+/* Wire up */
+function renderAll(){
+  updateHeader();
+  updateSaveBtn();
+  renderTop();
+  renderProductList();
+  renderMealPlan();
+  computeSuggestion(true);
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  $("versionBadge").textContent=VERSION;
+  updateHeader(); updateSaveBtn();
+
+  // meal buttons
+  document.querySelectorAll("#mealSeg .seg__btn").forEach(btn=>{
+    btn.addEventListener("click", function(){ 
+      currentMeal=btn.dataset.meal;
+      document.querySelectorAll("#mealSeg .seg__btn").forEach(b=>b.classList.toggle("is-on", b.dataset.meal===currentMeal));
+      renderProductList();
+      renderMealPlan();
+  computeSuggestion(true);
+    });
+  });
+
+  $("btnSaveOk").onclick=function(){ /* autosave */ };
+  $("btnGoal").onclick=openGoal;
+  $("btnGoalClose").onclick=function(){ hide("goalModal"); };
+  $("btnGoalCancel").onclick=function(){ hide("goalModal"); };
+  $("btnGoalSave").onclick=saveGoal;
+
+  $("btnDate").onclick=openDate;
+  $("btnDateClose").onclick=function(){ hide("dateModal"); };
+  $("btnToday").onclick=function(){ requestDaySwitch(todayKey()); };
+
+  $("btnDayMeals").onclick=openDayMeals;
+  $("btnDmClose").onclick=function(){ hide("dayMealsModal"); };
+  $("ringClick").onclick=openDayMeals;
+
+  $("btnPmClose").onclick=function(){ hide("productModal"); };
+  $("btnPmCancel").onclick=function(){ hide("productModal"); };
+  $("btnPmApply").onclick=function(){ setEntry(pm.entryMeal, pm.pid, pm.units); hide("productModal"); flashRow(pm.pid); renderTop(); computeSuggestion(true); };
+  $("btnPmTrash").onclick=function(){ const has=!!getEntry(pm.entryMeal, pm.pid); if(!has) return; confirmYesNo("Poistetaanko tämä syödyistä?","Poista", ()=>{ setEntry(pm.entryMeal, pm.pid, 0); hide("productModal"); renderTop(); computeSuggestion(true); renderProductList(); }); };
+
+  $("btnAddProduct").onclick=function(){ openAddProduct(""); };
+  $("btnCloseCustom").onclick=function(){ hide("customModal"); };
+  $("btnCancelCustom").onclick=function(){ hide("customModal"); };
+  $("btnOffSearch").onclick=offSearch;
+  $("btnSaveCustom").onclick=saveCustom;
+
+  $("btnSuggestRefresh").onclick=function(){ computeSuggestion(true); };
+  $("btnSuggestAlt").onclick=function(){ state.suggest.alt=(state.suggest.alt||0)+1; computeSuggestion(false); };
+  $("btnApplySuggestion").onclick=applySuggestion;
+
+  renderAll();
+});
