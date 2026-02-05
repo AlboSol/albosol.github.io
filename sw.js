@@ -1,52 +1,30 @@
-// Ruokasi SW baseline build 20260204235421
-const CACHE = "ruokasi-baseline-20260204235421";
-self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    try {
-      await cache.addAll([
-        "./",
-        "./index.html?v=20260204235421",
-        "./style.css?v=20260204235421",
-        "./app.js?v=20260204235421",
-        "./manifest.json?v=20260204235421",
-        "./icon.png?v=20260204235421",
-        "./sw-reset.html?v=20260204235421",
-      ]);
-    } catch (_) {}
-    self.skipWaiting();
-  })());
-});
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => k.startsWith("ruokasi-") && k !== CACHE ? caches.delete(k) : Promise.resolve()));
-    await self.clients.claim();
-  })());
-});
-function isNav(req) {
-  return req.mode === "navigate" || (req.method==="GET" && (req.headers.get("accept")||"").includes("text/html"));
-}
-self.addEventListener("fetch", (event) => {
+const CACHE="ruokasi-v3-2-4-6";
+const ASSETS=["./","./index.html","./style.css","./app.js","./manifest.json","./icon.png"];
+self.addEventListener("install",(e)=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
+self.addEventListener("activate",(e)=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k===CACHE?null:caches.delete(k)))));self.clients.claim();});
+self.addEventListener("fetch",(e)=>{e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).catch(()=>caches.match("./index.html"))));});
+
+
+// network-first fetch to avoid stale UI
+self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
+  const isHTML = req.mode === 'navigate' || (req.headers.get('accept')||'').includes('text/html');
+  const isAsset = url.pathname.endsWith('/app.js') || url.pathname.endsWith('/style.css') || url.pathname.endsWith('/index.html');
 
-  if (isNav(req)) {
-    event.respondWith((async () => {
-      try { return await fetch(req, { cache: "no-store" }); }
-      catch (_) {
+  if(isHTML || isAsset){
+    event.respondWith((async ()=>{
+      try{
+        const fresh = await fetch(req);
         const cache = await caches.open(CACHE);
-        return (await cache.match("./index.html?v=20260204235421")) || (await cache.match("./")) || new Response("Offline", {status:503});
+        cache.put(req, fresh.clone());
+        return fresh;
+      }catch(e){
+        const cached = await caches.match(req);
+        return cached || Response.error();
       }
     })());
     return;
   }
-
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(req);
-    const fresh = fetch(req).then(r => { cache.put(req, r.clone()); return r; }).catch(() => cached);
-    return cached || fresh;
-  })());
+  event.respondWith(caches.match(req).then(r => r || fetch(req)));
 });
