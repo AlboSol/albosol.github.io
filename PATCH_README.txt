@@ -1,0 +1,1 @@
+Hotfix v3.5.0.3: guards legacy currentTargetKcal reference to prevent runtime error.

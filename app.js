@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION = "v3.5.0.2-hotfix";
+const VERSION = "v3.5.0.3-hotfix";
 const KCAL_PER_STEP=0.04;
 const $=id=>document.getElementById(id);
 
@@ -157,6 +157,9 @@ const saveState=()=>localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
 const ensureDayLog=(d)=>state.logs[d]||(state.logs[d]=[]);
 const getProduct=(id)=>state.products.find(p=>p.id===id);
 const computedTarget=()=>r0((+state.goals.baseKcal||0)+(+state.activity.workoutKcal||0)+(+state.activity.stepGoal||0)*KCAL_PER_STEP);
+
+// Backwards-compat alias (older code referenced this)
+const currentTargetKcal = () => computedTarget();
 
 function unitToGrams(prod,qty,unit){
   const q=+qty||0;
