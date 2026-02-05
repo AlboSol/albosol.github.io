@@ -1,11 +1,23 @@
-<!doctype html><html lang="fi"><head>
-  <meta http-equiv="Cache-Control" content="no-store" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><title>Ruokasi – reset</title>
-<style>body{font-family:system-ui,-apple-system;padding:20px;background:#0b0b0f;color:#fff}.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px}</style></head>
-<body><div class="card"><h2>Ruokasi – nollaus</h2><p>Poistan välimuistit ja Service Workerit. Palaan hetken kuluttua sovellukseen.</p><div id="s">Käynnistetään…</div></div>
-<script>(async()=>{const s=document.getElementById('s');try{s.textContent='Poistetaan service workerit…';if('serviceWorker'in navigator){for(const r of await navigator.serviceWorker.getRegistrations()){try{await r.unregister();}catch(e){}}}
-s.textContent='Poistetaan välimuistit…';if('caches'in window){for(const k of await caches.keys()){try{await caches.delete(k);}catch(e){}}}
-s.textContent='Valmis. Avataan Ruokasi…';}catch(e){s.textContent='Nollaus epäonnistui: '+(e&&e.message?e.message:e);}
-setTimeout(()=>location.href='/?v=20260204235421',700);})();</script></body></html>
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ruokasi SW reset</title>
+<style>body{font-family:system-ui,-apple-system;padding:18px;background:#0b0b0f;color:#fff} .card{background:rgba(255,255,255,.08);padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.12)}</style>
+<h2>Ruokasi – välimuistin puhdistus</h2>
+<div class="card" id="out">Suoritetaan…</div>
+<script>
+(async()=>{
+  const out=document.getElementById('out');
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for(const r of regs){ await r.unregister(); }
+    }
+    if(window.caches){
+      const keys = await caches.keys();
+      for(const k of keys){ await caches.delete(k); }
+    }
+    out.textContent="Valmis. Sulje tämä välilehti ja avaa Ruokasi uudelleen.";
+  }catch(e){
+    out.textContent="Virhe: "+e;
+  }
+})();
+</script>

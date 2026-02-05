@@ -19,8 +19,8 @@
         <div class="appicon"></div>
         <div style="min-width:0">
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
-            <h1 style="min-width:0;overflow:hidden;text-overflow:ellipsis">Ruokasi</h1>
-            <div id="versionBadge" class="badge">v3.5.1.1</div>
+            <h1 style="min-width:0;overflow:visible">Ruokasi</h1>
+            <div id="versionBadge" class="badge">v3.4.0.0</div>
           </div>
           <div id="subline" class="subline"></div>
         </div>
@@ -43,6 +43,7 @@
           <div class="ringWrap">
             <svg viewBox="0 0 120 120">
               <circle cx="60" cy="60" r="46" stroke="rgba(255,255,255,0.12)" stroke-width="12" fill="none"></circle>
+              <g id="ringSegs"></g>
               <circle id="ringArc" cx="60" cy="60" r="46" stroke="var(--accent)" stroke-width="12" fill="none"
                 stroke-linecap="round" stroke-dasharray="0 999"></circle>
             </svg>
@@ -57,15 +58,19 @@
           </div>
         </div>
 
-        <div class="grid3">
+        
+        <div class="grid3" id="kpiRow">
           <div class="kpi" id="goalKpi" style="cursor:pointer">
             <div class="label">Päivän tavoite</div>
             <div class="value"><span id="targetKcal">0</span><span class="unit">kcal</span></div>
           </div>
-          <div class="kpi">
-            <div class="label">Syöty</div>
-            <div class="value"><span id="eatenKpi">0</span><span class="unit">kcal</span></div>
+
+          <div class="kpi" id="recKpi" style="cursor:pointer">
+            <div class="label">Suositus</div>
+            <div class="value"><span id="recKpiMeal">—</span></div>
+            <div class="sub"><span id="recKpiKcal">—</span> kcal</div>
           </div>
+
           <div class="kpi">
             <div class="label">Päivä</div>
             <div class="value"><span id="dayKpi">—</span></div>
@@ -73,6 +78,7 @@
         </div>
 
         <div class="macro">
+
           <div class="row"><div>Proteiini</div><div><span id="pNow">0</span> / <span id="pGoal">0</span> g</div></div>
           <div class="bar"><div id="pFill" class="fill" style="background: var(--accent)"></div></div>
         </div>
@@ -94,7 +100,7 @@
         <div id="productHint" style="margin-top:12px;color:var(--muted)">Valitse tuote listalta.</div>
         <div class="list" id="productList"></div>
         <div style="margin-top:12px">
-          <button id="addProductBtn" class="btn">+ Lisää tuote</button>
+          <div style="display:flex;gap:8px;align-items:center"><button id="addProductBtn" class="btn">+ Lisää tuote</button><button id="recipeBtn" class="btn iconbtn" title="Tee resepti">▾</button></div>
         </div>
       </div>
     </div>
@@ -112,7 +118,49 @@
     </div>
   </div>
 
-  <!-- Modals (same ids app.js expects) -->
+  
+  <div id="recipeModal" class="modal" aria-hidden="true">
+    <div class="sheet">
+      <div class="hdr">
+        <button class="btn danger iconbtn" id="recipeClose">✕</button>
+        <h4>Tee resepti</h4>
+        <div style="width:48px"></div>
+      </div>
+      <div class="content">
+        <div class="field">
+          <label>Nimi</label>
+          <input id="recipeName" class="input" placeholder="esim. Kaurapuuro" />
+        </div>
+        <div class="field">
+          <label>Kategoria</label>
+          <select id="recipeCat" class="input"></select>
+        </div>
+
+        <div style="margin-top:10px" class="muted">Ainekset</div>
+        <div id="recipeItems" class="list" style="margin-top:8px"></div>
+        <div style="margin-top:10px;display:flex;gap:10px">
+          <button id="recipeAddItem" class="btn">+ Lisää aines</button>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="body" style="display:flex;justify-content:space-between;gap:12px">
+            <div><div class="muted">Kalorit</div><div><b><span id="recipeTotKcal">0</span></b> kcal</div></div>
+            <div><div class="muted">P</div><div><b><span id="recipeTotP">0</span></b> g</div></div>
+            <div><div class="muted">C</div><div><b><span id="recipeTotC">0</span></b> g</div></div>
+            <div><div class="muted">F</div><div><b><span id="recipeTotF">0</span></b> g</div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;justify-content:space-between">
+          <button id="recipeSave" class="btn ok" style="flex:1">V</button>
+          <button id="recipeCancel" class="btn danger" style="flex:1">X</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<!-- Modals (same ids app.js expects) -->
   <div id="goalModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
@@ -245,30 +293,16 @@
     })();
   </script>
 
-  
-  <script>
-    // SW OFF (kehitysvaihe): poista mahdolliset vanhat Service Workerit + cache
-    (async function(){
-      if(!('serviceWorker' in navigator)) return;
-      try{
-        const regs = await navigator.serviceWorker.getRegistrations();
-        if(regs && regs.length){
-          for(const r of regs){ try{ await r.unregister(); }catch(_){} }
-          if(window.caches){
-            try{
-              const keys = await caches.keys();
-              await Promise.all(keys.map(k=>caches.delete(k)));
-            }catch(_){}
-          }
-          // Pakota lataus ilman vanhaa SW:ta
-          const u = new URL(location.href);
-          u.searchParams.set('swk', Date.now().toString());
-          location.replace(u.toString());
-        }
-      }catch(_){}
-    })();
-  </script>
-
   <script src="app.js?v=20260204235421" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const reg = await navigator.serviceWorker.register('sw.js?v=20260204235421', { scope: './' });
+          try { reg.update(); } catch(_) {}
+        } catch(e) {}
+      });
+    }
+  </script>
 </body>
 </html>

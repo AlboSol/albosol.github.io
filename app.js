@@ -1,9 +1,19 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION="v3.4.0.0";
+const VERSION="v3.5.0.0";
 const KCAL_PER_STEP=0.04;
 const $=id=>document.getElementById(id);
+
+const MEAL_COLORS={
+  "aamiainen":"#2F7BFF",
+  "lounas":"#22C55E",
+  "välipala":"#F59E0B",
+  "päivällinen":"#8B5CF6",
+  "iltapala":"#06B6D4",
+  "juomat":"#60A5FA",
+  "jälkiruoat":"#F472B6"
+};
 
 const MEALS=[
  {key:"aamiainen",label:"Aamiainen"},
@@ -22,12 +32,34 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const r0=x=>Math.round(x);
 const r1=x=>Math.round(x*10)/10;
 
+
 function seedProducts(){
   const mk=(id,name,cat,unit,gPer,kcal100,p100,c100,f100)=>({id,name,category:cat,unit,gPerUnit:gPer,kcal100,p100,c100,f100,ean:""});
   return [
     mk("kanafile","Kanafile","Päivällinen","g",1,110,23,0,1),
-    mk("maitorahka","Maitorahka","Aamiainen","annos",250,60,10,4,0),
+    mk("jauheliha10","Jauheliha 10%","Päivällinen","g",1,176,20,0,10),
+    mk("lohifilee","Lohifilee","Päivällinen","g",1,200,20,0,13),
+    mk("kananmuna","Kananmuna","Aamiainen","kpl",60,155,13,1,11),
+    mk("kaurahiutale","Kaurahiutaleet","Aamiainen","g",1,370,13,60,7),
+    mk("maito","Maito (rasvaton)","Aamiainen","dl",100,35,3.4,4.9,0.2),
+    mk("voi","Voi","Aamiainen","rkl",14,717,0.5,0.5,81),
+    mk("ruisleipa","Ruisleipä","Aamiainen","viipale",35,220,7.5,40,2.5),
+    mk("juusto15","Juusto 15%","Aamiainen","siivu",10,265,31,0,15),
+    mk("rahka","Maitorahka","Aamiainen","annos",250,60,10,4,0),
+    mk("jogurtti","Jogurtti","Aamiainen","dl",100,60,4,6,2),
+    mk("banaani","Banaani","Välipala","kpl",120,89,1.1,23,0.3),
+    mk("omena","Omena","Välipala","kpl",150,52,0.3,14,0.2),
+    mk("peruna","Peruna","Päivällinen","g",1,77,2,17,0.1),
+    mk("riisi","Riisi keitetty","Päivällinen","g",1,130,2.7,28,0.3),
+    mk("pasta","Pasta keitetty","Päivällinen","g",1,150,5.5,30,1.2),
+    mk("salaatti","Salaatti","Lounas","g",1,15,1,2,0.2),
+    mk("oliivioljy","Oliiviöljy","Lounas","rkl",14,884,0,0,100),
     mk("kahvi","Kahvi","Juomat","kpl",200,1,0,0,0),
+    mk("tee","Tee","Juomat","kpl",250,1,0,0,0),
+    mk("cola_zero","Cola Zero","Juomat","dl",100,0,0,0,0),
+    mk("olut0","Alkoholiton olut","Juomat","pullo",330,25,0.2,5,0),
+    mk("jaatelo","Jäätelö","Jälkiruoat","annos",100,200,3,24,11),
+    mk("suklaa","Suklaa","Jälkiruoat","pala",10,530,6,58,30),
   ];
 }
 function defaultState(){
@@ -41,11 +73,68 @@ function defaultState(){
     logs:{}, // date -> [{productId,qty,unit,meal,ts}]
   };
 }
+
+function autoCategoryForProduct(prod){
+  const p100 = +prod.p100||0;
+  return (p100>=10) ? "Päivällinen" : "Aamiainen";
+}
+function migrateState(s){
+  if(!s || typeof s!=="object") return null;
+
+  // Old v3.2.x shape: {day, goals:{minKcal,maxKcal,p,c,f}, activity:{...}, log:[], customFoods:[]}
+  if(s.day && !s.selectedDay){
+    const ns = defaultState();
+    ns.selectedDay = s.day || todayKey();
+    // goals
+    if(s.goals){
+      const maxK = +s.goals.maxKcal || +s.goals.baseKcal || ns.goals.baseKcal;
+      ns.goals.baseKcal = maxK;
+      ns.goals.p = +s.goals.p || ns.goals.p;
+      ns.goals.c = +s.goals.c || ns.goals.c;
+      ns.goals.f = +s.goals.f || ns.goals.f;
+    }
+    // activity
+    if(s.activity){
+      ns.activity.workoutKcal = +s.activity.workoutKcal || 0;
+      ns.activity.stepGoal = +s.activity.stepGoal || 0;
+      ns.activity.sleepH = +s.activity.sleepH || 0;
+    }
+    // products: merge seed + old custom foods
+    const base = seedProducts();
+    const byId = Object.fromEntries(base.map(p=>[p.id,p]));
+    if(Array.isArray(s.customFoods)){
+      s.customFoods.forEach(cf=>{
+        const id = (cf.ean && String(cf.ean).trim()) ? ("ean_"+String(cf.ean).trim()) : ("c_"+Math.random().toString(36).slice(2,9));
+        const cat = cf.category || autoCategoryForProduct(cf);
+        byId[id] = {id, name: cf.name||"Tuote", category: cat, unit: cf.unit||"g", gPerUnit:+cf.gPerUnit||+cf.g_per_unit||1,
+                   kcal100:+cf.kcal100||+cf.kcal||0, p100:+cf.p100||+cf.protein||0, c100:+cf.c100||+cf.carbs||0, f100:+cf.f100||+cf.fat||0,
+                   ean: cf.ean?String(cf.ean):""};
+      });
+    }
+    ns.products = Object.values(byId);
+    // favorites
+    ns.favorites = s.favorites || {};
+    // day logs: map s.log into dayLogs
+    ns.dayLogs = {};
+    const day = ns.selectedDay;
+    ns.dayLogs[day] = Array.isArray(s.log) ? s.log.map(e=>({
+      productId: e.productId||e.id||e.pid,
+      qty: +e.qty||+e.grams||1,
+      unit: e.unit||"g",
+      meal: e.meal||"aamiainen",
+      ts: e.ts||Date.now()
+    })) : [];
+    return ns;
+  }
+  return s;
+}
+
 function loadState(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);
     if(!raw) return defaultState();
-    const s=JSON.parse(raw);
+    let s=JSON.parse(raw);
+    s = migrateState(s) || s;
     const b=defaultState();
     return {
       ...b,...s,
@@ -60,6 +149,7 @@ function loadState(){
 }
 let state=loadState();
 let selectedMeal="aamiainen";
+let mealsView={level:"meals",meal:null};
 let editingProductId=null;
 let qtyContext=null;
 
@@ -83,6 +173,22 @@ function macrosFor(prod,g){
     f:(+prod.f100||0)*grams/100,
   };
 }
+
+function dayTotalsByMeal(day){
+  const log=ensureDayLog(day);
+  const out={};
+  MEALS.forEach(m=>out[m.key]={kcal:0,p:0,c:0,f:0});
+  log.forEach(e=>{
+    const prod=getProduct(e.productId); if(!prod) return;
+    const g=unitToGrams(prod,e.qty,e.unit);
+    const mm=macrosFor(prod,g);
+    const mkey=e.meal||"aamiainen";
+    if(!out[mkey]) out[mkey]={kcal:0,p:0,c:0,f:0};
+    out[mkey].kcal+=mm.kcal; out[mkey].p+=mm.p; out[mkey].c+=mm.c; out[mkey].f+=mm.f;
+  });
+  return out;
+}
+
 function dayTotals(d){
   const log=ensureDayLog(d);
   let kcal=0,p=0,c=0,f=0;
@@ -187,6 +293,12 @@ function init(){
     fillProductForm(null);
     openModal("productModal");
   };
+  if($("recipeBtn")) $("recipeBtn").onclick=openRecipeModal;
+  if($("recipeClose")) $("recipeClose").onclick=()=>closeModal("recipeModal");
+  if($("recipeCancel")) $("recipeCancel").onclick=()=>closeModal("recipeModal");
+  if($("recipeAddItem")) $("recipeAddItem").onclick=addRecipeItem;
+  if($("recipeSave")) $("recipeSave").onclick=saveRecipe;
+  if($("recKpi")) $("recKpi").onclick=()=>{ const sec=document.querySelector(".section.card h3"); const s=document.querySelector(".section.card"); if(s) s.scrollIntoView({behavior:"smooth",block:"start"}); };
   $("prodCancel").onclick=()=>closeModal("productModal");
   $("prodSave").onclick=()=>saveProductFromForm();
   $("prodDelete").onclick=()=>deleteProduct();
@@ -198,8 +310,9 @@ function init(){
   $("qtyPlus").onclick=()=>stepQty(1);
   $("qtyDelete").onclick=()=>deleteQty();
 
-  $("mealsClose").onclick=()=>closeModal("mealsModal");
+  setupSwipeToClose("mealsModal","mealsClose");
   $("refreshRecBtn").onclick=()=>renderRecommendation();
+  updateRecKpi();
 
   $("prodCat").innerHTML=PRODUCT_CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
   $("prodUnit").innerHTML=UNITS.map(u=>`<option value="${u.k}">${u.t}</option>`).join("");
@@ -212,6 +325,26 @@ function updateComputedField(){
   const w=+($("workoutKcal").value)||0;
   const steps=+($("stepGoal").value)||0;
   $("computedTarget").value = `${r0(base+w+steps*KCAL_PER_STEP)} kcal`;
+}
+
+
+function nextPlannedMeal(){
+  // pick next enabled meal from plan order
+  const order = MEALS.map(m=>m.key);
+  for(const k of order){
+    if(state.mealPlan && state.mealPlan[k]) return k;
+  }
+  return "aamiainen";
+}
+function updateRecKpi(){
+  const k = nextPlannedMeal();
+  const label = (MEALS.find(m=>m.key===k)?.label)||"—";
+  $("recKpiMeal").textContent = label;
+  // simple kcal hint: remaining / remainingMealsCount
+  const rem = Math.max(0, currentTargetKcal() - dayTotals(state.selectedDay).kcal);
+  const remainingMeals = MEALS.filter(m=>state.mealPlan?.[m.key]).length || 1;
+  const hint = Math.round(rem / remainingMeals);
+  $("recKpiKcal").textContent = String(hint);
 }
 
 function render(){
@@ -247,12 +380,70 @@ function render(){
   $("cFill").style.width=`${(state.goals.c?clamp(tot.c/state.goals.c,0,1):0)*100}%`;
   $("fFill").style.width=`${(state.goals.f?clamp(tot.f/state.goals.f,0,1):0)*100}%`;
 
+  const byMeal=dayTotalsByMeal(d);
   const circ=2*Math.PI*46;
   const pct=target?clamp(tot.kcal/target,0,1):0;
   $("ringArc").setAttribute("stroke-dasharray",`${pct*circ} ${circ}`);
+  renderRingSegments(target, byMeal);
+  // macro fills: width by goal, color segments by meals
+  const pFill=$("pFill"), cFill=$("cFill"), fFill=$("fFill");
+  if(pFill) pFill.style.background=gradientForMeals(target, byMeal, "p");
+  if(cFill) cFill.style.background=gradientForMeals(target, byMeal, "c");
+  if(fFill) fFill.style.background=gradientForMeals(target, byMeal, "f");
 
   renderProductList();
   renderRecommendation();
+  updateRecKpi();
+}
+
+
+function renderRingSegments(target, byMeal){
+  const svg=document.querySelector(".ringWrap svg");
+  const g=document.getElementById("ringSegs");
+  if(!svg||!g) return;
+  g.innerHTML="";
+  const r=46, circ=2*Math.PI*r;
+  // build segments in meal order, proportions of target
+  let offset=0;
+  const entries=MEALS.map(m=>({key:m.key, val:(byMeal[m.key]?.kcal)||0, color:MEAL_COLORS[m.key]||"var(--accent)"}))
+                    .filter(x=>x.val>0);
+  if(!target||target<=0||entries.length===0){
+    return;
+  }
+  entries.forEach(seg=>{
+    const frac=clamp(seg.val/target,0,1);
+    const len=frac*circ;
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx","60"); c.setAttribute("cy","60"); c.setAttribute("r",String(r));
+    c.setAttribute("stroke", seg.color);
+    c.setAttribute("stroke-width","12");
+    c.setAttribute("fill","none");
+    c.setAttribute("stroke-linecap","round");
+    c.setAttribute("stroke-dasharray", `${len} ${circ}`);
+    // rotate -90deg and apply cumulative offset
+    c.setAttribute("transform", "rotate(-90 60 60)");
+    // dashoffset shifts start: use negative offset
+    c.setAttribute("stroke-dashoffset", String(-offset));
+    g.appendChild(c);
+    offset += len;
+  });
+}
+function gradientForMeals(totalTarget, byMeal, field){
+  // field: 'kcal','p','c','f'
+  const parts=MEALS.map(m=>({key:m.key, val:(byMeal[m.key]?.[field])||0, color:MEAL_COLORS[m.key]||"var(--accent)"}))
+                  .filter(x=>x.val>0);
+  const sum=parts.reduce((a,b)=>a+b.val,0);
+  if(sum<=0) return "var(--accent)";
+  let cur=0;
+  const stops=[];
+  parts.forEach(p=>{
+    const pct=p.val/sum*100;
+    const start=cur;
+    const end=cur+pct;
+    stops.push(`${p.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`);
+    cur=end;
+  });
+  return `linear-gradient(90deg, ${stops.join(",")})`;
 }
 
 function renderProductList(){
@@ -334,9 +525,23 @@ function deleteProduct(){
   saveState(); closeModal("productModal"); toast("Poistettu"); render();
 }
 
+
+function openQtyEdit(entryIndex){
+  const d=state.selectedDay;
+  const log=ensureDayLog(d);
+  const e=log[entryIndex]; if(!e) return;
+  const prod=getProduct(e.productId); if(!prod) return;
+  qtyContext={mode:"edit", entryIndex, productId:e.productId, meal:e.meal, date:d};
+  $("qtyTitle").textContent=prod.name;
+  $("qtyMeta").textContent=`${MEALS.find(m=>m.key===e.meal)?.label||""} • yksikkö: ${e.unit} • g/yks: ${prod.gPerUnit||""}`;
+  $("qtyValue").value=String(e.qty);
+  $("qtyDelete").style.display="block";
+  openModal("qtyModal");
+}
+
 function openQty(productId,mode){
   const prod=getProduct(productId); if(!prod) return;
-  qtyContext={mode, productId, meal:selectedMeal, date:state.selectedDay};
+  qtyContext={mode:"add", productId, meal:selectedMeal, date:state.selectedDay};
   $("qtyTitle").textContent=prod.name;
   $("qtyMeta").textContent=`${MEALS.find(m=>m.key===selectedMeal)?.label||""} • yksikkö: ${prod.unit} • g/yks: ${prod.gPerUnit||""}`;
   $("qtyValue").value="1";
@@ -348,39 +553,82 @@ function confirmQty(){
   if(!qtyContext) return;
   const prod=getProduct(qtyContext.productId); if(!prod) return;
   const qty=+($("qtyValue").value)||0;
-  ensureDayLog(qtyContext.date).push({productId:qtyContext.productId,qty,unit:prod.unit,meal:qtyContext.meal,ts:Date.now()});
-  saveState(); closeModal("qtyModal"); toast("Lisätty"); render();
+  const log=ensureDayLog(qtyContext.date);
+  if(qtyContext.mode==="edit"){
+    const e=log[qtyContext.entryIndex];
+    if(e){ e.qty=qty; e.unit=prod.unit; e.meal=qtyContext.meal; }
+    saveState(); closeModal("qtyModal"); toast("Päivitetty"); render();
+  } else {
+    log.push({productId:qtyContext.productId,qty,unit:prod.unit,meal:qtyContext.meal,ts:Date.now()});
+    saveState(); closeModal("qtyModal"); toast("Lisätty"); render();
+  }
 }
-function deleteQty(){ /* reserved */ }
+function deleteQty(){
+  if(!qtyContext||qtyContext.mode!=="edit") return;
+  if(!confirm("Poistetaanko tämä kirjattu ruoka?")) return;
+  const log=ensureDayLog(qtyContext.date);
+  log.splice(qtyContext.entryIndex,1);
+  saveState(); closeModal("qtyModal"); toast("Poistettu"); render();
+}
+
 
 function openMealsModal(){
-  const d=state.selectedDay;
-  const agg=mealAgg(d);
-  const cont=$("mealsContent"); cont.innerHTML="";
-  for(const m of MEALS){
-    const b=agg[m.key]||{kcal:0,items:new Map()};
-    const sec=document.createElement("div");
-    sec.className="item";
-    sec.style.flexDirection="column";
-    sec.style.alignItems="stretch";
-    sec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900">${m.label}</div><div style="font-weight:900">${r0(b.kcal)} kcal</div></div>`;
-    if(b.items.size){
-      for(const [pid,v] of b.items.entries()){
-        const prod=getProduct(pid); if(!prod) continue;
-        const row=document.createElement("div");
-        row.style.display="flex";row.style.justifyContent="space-between";row.style.alignItems="center";
-        row.style.marginTop="8px";row.style.paddingTop="8px";row.style.borderTop="1px solid rgba(255,255,255,0.10)";
-        row.innerHTML=`<div style="min-width:0"><div style="font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(prod.name)}</div><div style="color:rgba(255,255,255,0.62);font-size:13px">${r1(v.qty)} ${esc(prod.unit)} • ${r0(v.kcal)} kcal</div></div>`;
-        sec.appendChild(row);
-      }
-    }else{
-      const none=document.createElement("div"); none.style.marginTop="8px"; none.style.color="rgba(255,255,255,0.55)"; none.textContent="—";
-      sec.appendChild(none);
-    }
-    cont.appendChild(sec);
-  }
+  mealsView={level:"meals", meal:null};
+  renderMealsModal();
   openModal("mealsModal");
 }
+function renderMealsModal(){
+  const d=state.selectedDay;
+  const log=ensureDayLog(d);
+  const cont=$("mealsContent"); cont.innerHTML="";
+  if(mealsView.level==="meals"){
+    // group by meal
+    const groups={};
+    log.forEach((e,idx)=>{ (groups[e.meal]=groups[e.meal]||[]).push({e,idx}); });
+    MEALS.forEach(m=>{
+      const arr=groups[m.key]||[];
+      if(!arr.length) return;
+      let kcal=0,p=0,c=0,f=0;
+      arr.forEach(({e})=>{
+        const prod=getProduct(e.productId); if(!prod) return;
+        const g=unitToGrams(prod,e.qty,e.unit);
+        const mm=macrosFor(prod,g);
+        kcal+=mm.kcal; p+=mm.p; c+=mm.c; f+=mm.f;
+      });
+      const row=document.createElement("button");
+      row.className="rowbtn";
+      row.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div><b>${m.label}</b><div class="muted">${Math.round(p)}P • ${Math.round(c)}C • ${Math.round(f)}F</div></div>
+        <div style="text-align:right"><b>${Math.round(kcal)}</b> kcal</div>
+      </div>`;
+      row.addEventListener("click",()=>{ mealsView={level:"foods", meal:m.key}; renderMealsModal(); });
+      cont.appendChild(row);
+    });
+  }else{
+    const mealKey=mealsView.meal;
+    const back=document.createElement("button");
+    back.className="rowbtn";
+    back.innerHTML="← Takaisin aterioihin";
+    back.addEventListener("click",()=>{ mealsView={level:"meals", meal:null}; renderMealsModal(); });
+    cont.appendChild(back);
+
+    log.forEach((e,idx)=>{
+      if(e.meal!==mealKey) return;
+      const prod=getProduct(e.productId); if(!prod) return;
+      const g=unitToGrams(prod,e.qty,e.unit);
+      const mm=macrosFor(prod,g);
+      const row=document.createElement("button");
+      row.className="rowbtn";
+      row.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div><b>${prod.name}</b><div class="muted">${r1(e.qty)} ${e.unit} • ${Math.round(mm.p)}P ${Math.round(mm.c)}C ${Math.round(mm.f)}F</div></div>
+        <div style="text-align:right"><b>${Math.round(mm.kcal)}</b> kcal</div>
+      </div>`;
+      row.addEventListener("click",()=>openQtyEdit(idx));
+      cont.appendChild(row);
+    });
+  }
+}
+
 
 async function offSearch(){
   const q=$("offQuery").value.trim();
@@ -451,3 +699,128 @@ function renderRecommendation(){
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));}
 
 document.addEventListener("DOMContentLoaded", init);
+function setupSwipeToClose(modalId, closeBtnId){
+  const modal=$(modalId);
+  if(!modal) return;
+  const sheet=modal.querySelector(".sheet");
+  if(!sheet) return;
+  let y0=null, t0=0;
+  sheet.addEventListener("touchstart",(ev)=>{
+    if(!ev.touches||!ev.touches.length) return;
+    y0=ev.touches[0].clientY; t0=Date.now();
+  },{passive:true});
+  sheet.addEventListener("touchmove",(ev)=>{
+    if(y0==null) return;
+    const y=ev.touches[0].clientY;
+    const dy=y-y0;
+    if(dy>80 && Date.now()-t0<800){
+      y0=null;
+      closeModal(modalId);
+    }
+  },{passive:true});
+  // also allow background tap
+  modal.addEventListener("click",(ev)=>{ if(ev.target===modal) closeModal(modalId); });
+  const btn=$(closeBtnId);
+  if(btn) btn.addEventListener("click",()=>closeModal(modalId));
+}
+
+
+let recipeCtx=null;
+
+function openRecipeModal(){
+  recipeCtx={items:[]};
+  // fill category options
+  const sel=$("recipeCat");
+  sel.innerHTML = PRODUCT_CATS.map(c=>`<option value="${c}">${c}</option>`).join("");
+  $("recipeName").value="";
+  addRecipeItem();
+  recalcRecipe();
+  openModal("recipeModal");
+}
+
+function productOptionsHtml(){
+  return state.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+}
+function addRecipeItem(){
+  const id = state.products[0]?.id || "";
+  recipeCtx.items.push({productId:id, qty:1, unit:"g"});
+  renderRecipeItems();
+}
+function removeRecipeItem(i){
+  recipeCtx.items.splice(i,1);
+  if(recipeCtx.items.length===0) addRecipeItem();
+  renderRecipeItems();
+}
+function renderRecipeItems(){
+  const cont=$("recipeItems");
+  cont.innerHTML="";
+  recipeCtx.items.forEach((it,i)=>{
+    const row=document.createElement("div");
+    row.className="recipeRow";
+    row.innerHTML = `
+      <select class="input" data-role="prod">${productOptionsHtml()}</select>
+      <input class="input mini" data-role="qty" inputmode="decimal" value="${it.qty}">
+      <select class="input mini" data-role="unit">
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+        <option value="annos">annos</option>
+        <option value="kpl">kpl</option>
+        <option value="dl">dl</option>
+        <option value="rkl">rkl</option>
+        <option value="tl">tl</option>
+        <option value="viipale">viipale</option>
+        <option value="siivu">siivu</option>
+        <option value="pullo">pullo</option>
+        <option value="purkki">purkki</option>
+      </select>
+      <button class="btn danger rm" title="Poista">🗑</button>
+    `;
+    const prodSel=row.querySelector('[data-role="prod"]');
+    const qtyIn=row.querySelector('[data-role="qty"]');
+    const unitSel=row.querySelector('[data-role="unit"]');
+    const rm=row.querySelector(".rm");
+    prodSel.value=it.productId;
+    unitSel.value=it.unit;
+    prodSel.addEventListener("change",()=>{ it.productId=prodSel.value; recalcRecipe(); });
+    qtyIn.addEventListener("input",()=>{ it.qty=+qtyIn.value||0; recalcRecipe(); });
+    unitSel.addEventListener("change",()=>{ it.unit=unitSel.value; recalcRecipe(); });
+    rm.addEventListener("click",()=>removeRecipeItem(i));
+    cont.appendChild(row);
+  });
+  recalcRecipe();
+}
+function recalcRecipe(){
+  if(!recipeCtx) return;
+  let kcal=0,p=0,c=0,f=0,totalG=0;
+  recipeCtx.items.forEach(it=>{
+    const prod=getProduct(it.productId); if(!prod) return;
+    const g=unitToGrams(prod,it.qty,it.unit);
+    totalG += g;
+    const mm=macrosFor(prod,g);
+    kcal+=mm.kcal; p+=mm.p; c+=mm.c; f+=mm.f;
+  });
+  $("recipeTotKcal").textContent=String(Math.round(kcal));
+  $("recipeTotP").textContent=String(Math.round(p));
+  $("recipeTotC").textContent=String(Math.round(c));
+  $("recipeTotF").textContent=String(Math.round(f));
+  recipeCtx.total={kcal,p,c,f,totalG};
+}
+function saveRecipe(){
+  const name=($("recipeName").value||"").trim();
+  if(!name){ alert("Anna reseptille nimi"); return; }
+  const cat=$("recipeCat").value||"Päivällinen";
+  const tot=recipeCtx?.total; if(!tot||tot.totalG<=0){ alert("Lisää ainekset"); return; }
+  const id="r_"+Math.random().toString(36).slice(2,9);
+  const kcal100 = tot.kcal / tot.totalG * 100;
+  const p100 = tot.p / tot.totalG * 100;
+  const c100 = tot.c / tot.totalG * 100;
+  const f100 = tot.f / tot.totalG * 100;
+  const prod={id,name,category:cat,unit:"annos",gPerUnit:Math.round(tot.totalG),kcal100:r1(kcal100),p100:r1(p100),c100:r1(c100),f100:r1(f100),ean:""};
+  state.products.unshift(prod);
+  saveState();
+  closeModal("recipeModal");
+  toast("Resepti tallennettu");
+  render();
+}
+
+
