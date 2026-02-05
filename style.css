@@ -70,3 +70,13 @@ input,select{width:100%;min-height:48px;padding:12px 14px;border-radius:16px;bor
 .kpi.small .value{font-size:22px}
 .editbtn{width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;color:rgba(255,255,255,.9)}
 .editbtn:active{transform:translateY(1px)}
+
+/* V/X button styling */
+.vx{border-radius:18px}
+.vx.vx-v{background:rgba(22,163,74,.22)!important;border-color:rgba(22,163,74,.55)!important}
+.vx.vx-x{background:rgba(239,68,68,.20)!important;border-color:rgba(239,68,68,.55)!important}
+.vx.iconbtn{width:50px;height:50px;font-size:18px}
+.vx:active{transform:translateY(1px) scale(0.99)}
+/* Harder zoom prevention */
+html,body{touch-action:manipulation}
+input,select,button,a,.pill,.item{touch-action:manipulation}

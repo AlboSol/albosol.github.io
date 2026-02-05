@@ -2,7 +2,7 @@
 <html lang="fi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0b0f" />
   <title>Ruokasi</title>
   <link rel="manifest" href="manifest.json?v=20260204235421">
@@ -18,11 +18,8 @@
       <div class="brand">
         <div class="appicon"></div>
         <div style="min-width:0">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0">
-            <h1 style="min-width:0;overflow:hidden;text-overflow:ellipsis">Ruokasi</h1>
-            <div id="versionBadge" class="badge">v3.4.0.0</div>
-          </div>
-          <div id="subline" class="subline">1900–2000 kcal / päivä</div>
+          <div style="display:flex;align-items:center;gap:10px;min-width:0"><h1 style="min-width:0;overflow:visible;text-overflow:clip">Ruokasi</h1></div><div style="margin-top:6px"><div id="versionBadge" class="badge">v3.4.1.2</div></div>
+          <div id="subline" class="subline" style="display:none"></div>
         </div>
       </div>
       <div class="actions">
@@ -113,9 +110,9 @@
   <div id="goalModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
-        <button class="btn danger iconbtn" id="goalCancel">✕</button>
+        <button class="vx vx-x btn danger iconbtn" id="goalCancel">✕</button>
         <h4>Päivän tavoite</h4>
-        <button class="btn ok iconbtn" id="goalSave">✓</button>
+        <button class="vx vx-v btn ok iconbtn" id="goalSave">✓</button>
       </div>
       <div class="content">
         <div class="row2">
@@ -139,9 +136,9 @@
   <div id="productModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
-        <button class="btn danger iconbtn" id="prodCancel">✕</button>
+        <button class="vx vx-x btn danger iconbtn" id="prodCancel">✕</button>
         <h4 id="prodTitle">Lisää tuote</h4>
-        <button class="btn ok iconbtn" id="prodSave">✓</button>
+        <button class="vx vx-v btn ok iconbtn" id="prodSave">✓</button>
       </div>
       <div class="content">
         <div class="field"><label>Nimi</label><input id="prodName" type="text" /></div>
@@ -182,9 +179,9 @@
   <div id="qtyModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
-        <button class="btn danger iconbtn" id="qtyCancel">✕</button>
+        <button class="vx vx-x btn danger iconbtn" id="qtyCancel">✕</button>
         <h4 id="qtyTitle">—</h4>
-        <button class="btn ok iconbtn" id="qtyConfirm">✓</button>
+        <button class="vx vx-v btn ok iconbtn" id="qtyConfirm">✓</button>
       </div>
       <div class="content">
         <div id="qtyMeta" style="color:var(--muted);font-weight:700">—</div>
@@ -201,7 +198,7 @@
   <div id="mealsModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
-        <button class="btn danger iconbtn" id="mealsClose">✕</button>
+        <button class="btn danger iconbtn" class="btn danger iconbtn vx vx-x" id="mealsClose">✕</button>
         <h4>Päivän syömiset</h4>
         <div style="width:48px"></div>
       </div>
@@ -212,7 +209,7 @@
   <div id="calendarModal" class="modal" aria-hidden="true">
     <div class="sheet">
       <div class="hdr">
-        <button class="btn danger iconbtn" id="calClose">✕</button>
+        <button class="vx vx-x btn danger iconbtn" id="calClose">✕</button>
         <h4>Valitse päivä</h4>
         <div style="width:48px"></div>
       </div>
