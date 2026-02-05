@@ -2,307 +2,181 @@
 <html lang="fi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0b0f" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Ruokasi</title>
-  <link rel="manifest" href="manifest.json?v=20260204235421">
-  <link rel="icon" href="icon.png">
-  <link rel="apple-touch-icon" href="icon.png">
-  <link rel="stylesheet" href="style.css?v=20260204235421">
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <meta name="theme-color" content="#0A84FF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Ruokasi" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="__err_overlay" style="display:none;position:fixed;inset:12px 12px auto 12px;background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.55);color:#fff;padding:12px;border-radius:14px;font-family:system-ui,-apple-system;font-size:13px;line-height:1.25;z-index:99999;white-space:pre-wrap"></div>
-
-  <div class="container">
-    <div class="topbar">
-      <div class="brand">
-        <div class="appicon"></div>
-        <div style="min-width:0">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0">
-            <h1 style="min-width:0;overflow:visible">Ruokasi</h1>
-            <div id="versionBadge" class="badge">v3.4.0.0</div>
-          </div>
-          <div id="subline" class="subline"></div>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="calendarBtn" class="btn iconbtn" aria-label="Kalenteri">📅</button>
-        <button id="statusBtn" class="btn ok">OK</button>
-        <button id="resetBtn" class="btn">Nollaa</button>
+  <header class="nav">
+    <div class="nav__title">
+      <div class="appmark" aria-hidden="true"></div>
+      <div>
+        <h1>Ruokasi</h1>
+      <div class="badge" id="versionBadge">–</div>
+        <p class="sub">1900–2000 kcal / päivä • v3.2.4.6</p>
       </div>
     </div>
+    <button class="ghost" id="btnReset" title="Nollaa päivä">Nollaa</button>
+  </header>
 
-    <div class="card">
-      <div class="inner">
-        <div class="dateRow">
-          <div><span id="todayLabel">Tänään</span> • <span id="dateLabel">—</span></div>
-          <div id="pastHint" style="display:none;color:rgba(255,255,255,0.75)">Menneisyys</div>
+  <main class="container">
+
+    <section class="card">
+      <div class="row">
+        <div>
+          <h2>Tänään</h2>
+          <p class="muted" id="todayLabel">–</p>
         </div>
+        <div class="pill" id="statusPill">OK</div>
+      </div>
 
-        <div class="summaryRow" style="margin-top:10px">
-          <div class="ringWrap">
-            <svg viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="46" stroke="rgba(255,255,255,0.12)" stroke-width="12" fill="none"></circle>
-              <g id="ringSegs"></g>
-              <circle id="ringArc" cx="60" cy="60" r="46" stroke="var(--accent)" stroke-width="12" fill="none"
-                stroke-linecap="round" stroke-dasharray="0 999"></circle>
-            </svg>
-            <div class="ringCenter">
-              <div class="num"><span id="eatenKcal">0</span></div>
-              <div class="small">kcal</div>
-            </div>
-          </div>
-          <div>
-            <div class="remaining">Jäljellä <b><span id="remainingKcal">0</span> kcal</b></div>
-            <a id="dayMealsLink" class="link" href="javascript:void(0)">Päivän syömiset</a>
-          </div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi__label">Syöty</div>
+          <div class="kpi__value"><span id="kcalEaten">0</span><span class="unit">kcal</span></div>
         </div>
-
-        
-        <div class="grid3" id="kpiRow">
-          <div class="kpi" id="goalKpi" style="cursor:pointer">
-            <div class="label">Päivän tavoite</div>
-            <div class="value"><span id="targetKcal">0</span><span class="unit">kcal</span></div>
-          </div>
-
-          <div class="kpi" id="recKpi" style="cursor:pointer">
-            <div class="label">Suositus</div>
-            <div class="value"><span id="recKpiMeal">—</span></div>
-            <div class="sub"><span id="recKpiKcal">—</span> kcal</div>
-          </div>
-
-          <div class="kpi">
-            <div class="label">Päivä</div>
-            <div class="value"><span id="dayKpi">—</span></div>
-          </div>
+        <div class="kpi">
+          <div class="kpi__label">Jäljellä</div>
+          <div class="kpi__value"><span id="kcalLeft">0</span><span class="unit">kcal</span></div>
         </div>
+        <div class="kpi">
+          <div class="kpi__label">Arvioitu kulutus</div>
+          <div class="kpi__value"><span id="kcalBurn">0</span><span class="unit">kcal</span></div>
+        </div>
+      </div>
 
+      <div class="macro-grid">
         <div class="macro">
-
-          <div class="row"><div>Proteiini</div><div><span id="pNow">0</span> / <span id="pGoal">0</span> g</div></div>
-          <div class="bar"><div id="pFill" class="fill" style="background: var(--accent)"></div></div>
+          <div class="macro__top">
+            <span>Proteiini</span><span class="muted"><span id="pNow">0</span> / <span id="pGoal">140</span> g</span>
+          </div>
+          <div class="bar"><div class="bar__fill" id="pBar"></div></div>
         </div>
         <div class="macro">
-          <div class="row"><div>Hiilarit</div><div><span id="cNow">0</span> / <span id="cGoal">0</span> g</div></div>
-          <div class="bar"><div id="cFill" class="fill" style="background: var(--accent)"></div></div>
+          <div class="macro__top">
+            <span>Hiilarit</span><span class="muted"><span id="cNow">0</span> / <span id="cGoal">170</span> g</span>
+          </div>
+          <div class="bar"><div class="bar__fill" id="cBar"></div></div>
         </div>
         <div class="macro">
-          <div class="row"><div>Rasva</div><div><span id="fNow">0</span> / <span id="fGoal">0</span> g</div></div>
-          <div class="bar"><div id="fFill" class="fill" style="background: var(--accent)"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section card">
-      <h3>Lisää ruokaa</h3>
-      <div class="body">
-        <div class="pills" id="mealPills"></div>
-        <div id="productHint" style="margin-top:12px;color:var(--muted)">Valitse tuote listalta.</div>
-        <div class="list" id="productList"></div>
-        <div style="margin-top:12px">
-          <div style="display:flex;gap:8px;align-items:center"><button id="addProductBtn" class="btn">+ Lisää tuote</button><button id="recipeBtn" class="btn iconbtn" title="Tee resepti">▾</button></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section card">
-      <h3>Suositus</h3>
-      <div class="body">
-        <div class="pills" id="planPills"></div>
-        <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
-          <button id="refreshRecBtn" class="btn primary">Päivitä</button>
-          <div id="recStatus" style="color:var(--muted)">—</div>
-        </div>
-        <div id="recCard" class="list" style="margin-top:12px"></div>
-      </div>
-    </div>
-  </div>
-
-  
-  <div id="recipeModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="recipeClose">✕</button>
-        <h4>Tee resepti</h4>
-        <div style="width:48px"></div>
-      </div>
-      <div class="content">
-        <div class="field">
-          <label>Nimi</label>
-          <input id="recipeName" class="input" placeholder="esim. Kaurapuuro" />
-        </div>
-        <div class="field">
-          <label>Kategoria</label>
-          <select id="recipeCat" class="input"></select>
-        </div>
-
-        <div style="margin-top:10px" class="muted">Ainekset</div>
-        <div id="recipeItems" class="list" style="margin-top:8px"></div>
-        <div style="margin-top:10px;display:flex;gap:10px">
-          <button id="recipeAddItem" class="btn">+ Lisää aines</button>
-        </div>
-
-        <div class="card" style="margin-top:12px">
-          <div class="body" style="display:flex;justify-content:space-between;gap:12px">
-            <div><div class="muted">Kalorit</div><div><b><span id="recipeTotKcal">0</span></b> kcal</div></div>
-            <div><div class="muted">P</div><div><b><span id="recipeTotP">0</span></b> g</div></div>
-            <div><div class="muted">C</div><div><b><span id="recipeTotC">0</span></b> g</div></div>
-            <div><div class="muted">F</div><div><b><span id="recipeTotF">0</span></b> g</div></div>
+          <div class="macro__top">
+            <span>Rasva</span><span class="muted"><span id="fNow">0</span> / <span id="fGoal">70</span> g</span>
           </div>
+          <div class="bar"><div class="bar__fill" id="fBar"></div></div>
         </div>
+      </div>
 
-        <div style="margin-top:14px;display:flex;gap:10px;justify-content:space-between">
-          <button id="recipeSave" class="btn ok" style="flex:1">V</button>
-          <button id="recipeCancel" class="btn danger" style="flex:1">X</button>
+      <details class="details">
+        <summary>Lisäasetukset</summary>
+        <div class="form-grid">
+          <label>Kaloritavoite (max)<input type="number" id="goalMax" value="2000" /></label>
+          <label>Kaloritavoite (min)<input type="number" id="goalMin" value="1900" /></label>
+          <label>Proteiinitavoite (g)<input type="number" id="goalP" value="140" /></label>
+          <label>Hiilaritavoite (g)<input type="number" id="goalC" value="170" /></label>
+          <label>Rasvatavoite (g)<input type="number" id="goalF" value="70" /></label>
+          <label>Askeleet tänään<input type="number" id="steps" value="0" /></label>
+          <label>Treeni (kcal)<input type="number" id="workoutKcal" value="0" /></label>
+          <label>Uni (tunnit)<input type="number" id="sleepH" value="0" /></label>
         </div>
+        <p class="hint">Askeleet arvioidaan ~0.04 kcal/askel. (Watch/uni automaattisesti vaatii natiivin iOS-sovelluksen.)</p>
+      </details>
+    </section>
+
+    <details class="card carddet" open id="secAdd">
+      <summary class="cardSum">Lisää ruokaa</summary>
+      <div class="row">
+        <div class="seg">
+          <button class="seg__btn is-on" data-meal="aamiainen">Aamiainen</button>
+          <button class="seg__btn" data-meal="lounas">Lounas</button>
+          <button class="seg__btn" data-meal="välipala">Välipala</button>
+          <button class="seg__btn" data-meal="päivällinen">Päivällinen</button>
+          <button class="seg__btn" data-meal="iltapala">Iltapala</button>
+        </div>
+      </div>
+      <div class="tabhint" id="mealHint">Valitse vaihtoehdot ja säädä annoskoot (yksiköt + grammat).</div>
+      <div id="presetList" class="list"></div>
+      <div class="row row--tight">
+        <button class="primary" id="btnAddSelected">Lisää valitut</button>
+        <button class="ghost" id="btnClearSelected">Tyhjennä valinnat</button>
+      </div>
+    </details>
+
+    <details class="card carddet" open id="secCustom">
+      <summary class="cardSum">Omat ruoat</summary>
+      <div class="row">
+        <div class="muted">Lisää omia ruokia, joille määritetään myös yksikkö + grammat.</div>
+        <button class="ghost" id="btnOpenCustom" onclick="window.RUOKASI_OPEN_CUSTOM&&window.RUOKASI_OPEN_CUSTOM()">Lisää oma</button>
+      </div>
+      <div id="customList" class="list"></div>
+    </details>
+
+    <details class="card carddet" open id="secLog">
+      <summary class="cardSum">Päivän syömiset</summary>
+      <div class="row">
+        <div class="muted">Kirjaukset tälle päivälle.</div>
+        <button class="ghost" id="btnExport">Vie</button>
+      </div>
+      <div id="logList" class="log"></div>
+    </details>
+
+    <details class="card carddet" open id="secSuggest">
+      <summary class="cardSum">Suositus</summary>
+      <div class="muted">Suositus tasapainottaa päivän makroja. Poista ateria täpällä, jos haluat.</div>
+      <div class="mealplan" id="mealPlan"></div>
+      <div class="row row--tight" style="margin-top:10px">
+        <button class="ghost" id="btnSuggest">Päivitä</button>
+        <div class="muted" id="suggestUpdated" style="margin-left:auto">–</div>
+      </div>
+      <div class="suggest" id="suggestBox">–</div>
+    </details>
+
+  </main>
+
+  <div class="modalOverlay is-hidden" id="customModal" role="dialog" aria-modal="true" aria-labelledby="customTitle">
+    <div class="modal">
+      <div class="modal__head">
+        <h3 id="customTitle">Lisää oma ruoka</h3>
+        <button class="ghost" type="button" id="btnCloseCustom" aria-label="Sulje">✕</button>
+      </div>
+
+      <details class="details" style="margin-top:10px">
+        <summary>Hae Open Food Factsista</summary>
+        <div class="form-grid" style="margin-top:10px">
+          <label>Haku (tuotenimi tai viivakoodi)
+            <input id="offQuery" placeholder="esim. Valio PROfeel / 6408432101234" />
+          </label>
+        </div>
+        <div class="row row--tight" style="margin-top:10px">
+          <button class="ghost" type="button" id="btnOffSearch" onclick="window.RUOKASI_OFF_SEARCH&&window.RUOKASI_OFF_SEARCH()">Hae</button>
+          <div class="muted" id="offStatus" style="margin-left:auto">–</div>
+        </div>
+        <div id="offResults" class="list" style="margin-top:10px"></div>
+        <p class="hint">Lähde: Open Food Facts (avoin tietokanta). Tarkista arvot, jos tiedoissa on puutteita.</p>
+      </details>
+
+      <div class="form-grid" style="margin-top:12px">
+        <label>Nimi<input id="cfName" /></label>
+        <label>Kalorit / 100g<input id="cfKcal" type="number" /></label>
+        <label>Proteiini / 100g<input id="cfP" type="number" /></label>
+        <label>Hiilarit / 100g<input id="cfC" type="number" /></label>
+        <label>Rasva / 100g<input id="cfF" type="number" /></label>
+        <label>Yksikkö<input id="cfUnit" placeholder="viipale, kpl, dl" /></label>
+        <label>g / yksikkö<input id="cfGPU" type="number" placeholder="35" /></label>
+      </div>
+
+      <div class="row row--tight" style="margin-top:12px">
+        <button class="primary" type="button" id="btnSaveCustom">Tallenna</button>
+        <button class="ghost" type="button" id="btnCancelCustom">Peruuta</button>
       </div>
     </div>
   </div>
 
-
-<!-- Modals (same ids app.js expects) -->
-  <div id="goalModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="goalCancel">✕</button>
-        <h4>Päivän tavoite</h4>
-        <button class="btn ok iconbtn" id="goalSave">✓</button>
-      </div>
-      <div class="content">
-        <div class="row2">
-          <div class="field"><label>Perustavoite (kcal)</label><input id="baseKcal" type="number" inputmode="numeric" /></div>
-          <div class="field"><label>Treenikcal (+)</label><input id="workoutKcal" type="number" inputmode="numeric" /></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Askelten tavoite (kpl)</label><input id="stepGoal" type="number" inputmode="numeric" /></div>
-          <div class="field"><label>Uni (h)</label><input id="sleepH" type="number" inputmode="decimal" /></div>
-        </div>
-        <div class="field"><label>Laskettu päivän tavoite</label><input id="computedTarget" type="text" disabled /></div>
-        <div class="row3">
-          <div class="field"><label>Proteiini (g)</label><input id="goalP" type="number" inputmode="numeric" /></div>
-          <div class="field"><label>Hiilarit (g)</label><input id="goalC" type="number" inputmode="numeric" /></div>
-          <div class="field"><label>Rasva (g)</label><input id="goalF" type="number" inputmode="numeric" /></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="productModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="prodCancel">✕</button>
-        <h4 id="prodTitle">Lisää tuote</h4>
-        <button class="btn ok iconbtn" id="prodSave">✓</button>
-      </div>
-      <div class="content">
-        <div class="field"><label>Nimi</label><input id="prodName" type="text" /></div>
-        <div class="row2">
-          <div class="field"><label>Kategoria</label><select id="prodCat"></select></div>
-          <div class="field"><label>Yksikkö</label><select id="prodUnit"></select></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>g / yksikkö</label><input id="prodGPer" type="number" inputmode="decimal" /></div>
-          <div class="field"><label>Kalorit / 100g</label><input id="prodKcal100" type="number" inputmode="decimal" /></div>
-        </div>
-        <div class="row3">
-          <div class="field"><label>Proteiini / 100g</label><input id="prodP100" type="number" inputmode="decimal" /></div>
-          <div class="field"><label>Hiilarit / 100g</label><input id="prodC100" type="number" inputmode="decimal" /></div>
-          <div class="field"><label>Rasva / 100g</label><input id="prodF100" type="number" inputmode="decimal" /></div>
-        </div>
-        <div class="field"><label>EAN (valinnainen)</label><input id="prodEan" type="text" inputmode="numeric" /></div>
-
-        <div class="card" style="margin-top:12px;background:rgba(0,0,0,0.18)">
-          <div class="inner" style="padding:12px 12px 14px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <div style="font-weight:850">Hae Open Food Facts</div>
-              <button id="offSearchBtn" class="btn primary">Hae</button>
-            </div>
-            <div class="field" style="margin-top:10px"><input id="offQuery" type="text" placeholder="esim. kanafile, maitorahka, kahvi" /></div>
-            <div id="offStatus" style="color:var(--muted);margin-top:6px">—</div>
-            <div id="offResults" class="list" style="margin-top:10px"></div>
-          </div>
-        </div>
-
-        <div id="prodDeleteWrap" style="margin-top:12px;display:none">
-          <button id="prodDelete" class="btn danger">🗑 Poista tuote</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="qtyModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="qtyCancel">✕</button>
-        <h4 id="qtyTitle">—</h4>
-        <button class="btn ok iconbtn" id="qtyConfirm">✓</button>
-      </div>
-      <div class="content">
-        <div id="qtyMeta" style="color:var(--muted);font-weight:700">—</div>
-        <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
-          <button id="qtyMinus" class="btn iconbtn">−</button>
-          <input id="qtyValue" type="number" inputmode="decimal" />
-          <button id="qtyPlus" class="btn iconbtn">+</button>
-        </div>
-        <div style="margin-top:14px"><button id="qtyDelete" class="btn danger" style="display:none">🗑 Poista tästä päivästä</button></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="mealsModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="mealsClose">✕</button>
-        <h4>Päivän syömiset</h4>
-        <div style="width:48px"></div>
-      </div>
-      <div class="content"><div id="mealsContent" class="list"></div></div>
-    </div>
-  </div>
-
-  <div id="calendarModal" class="modal" aria-hidden="true">
-    <div class="sheet">
-      <div class="hdr">
-        <button class="btn danger iconbtn" id="calClose">✕</button>
-        <h4>Valitse päivä</h4>
-        <div style="width:48px"></div>
-      </div>
-      <div class="content">
-        <div class="field"><label>Päivämäärä</label><input id="calDate" type="date" /></div>
-        <button id="calGo" class="btn primary" style="margin-top:12px;width:100%">Avaa</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast">Lisätty</div>
-
-  <script>
-    (function() {
-      const box = document.getElementById("__err_overlay");
-      function show(msg){ box.style.display="block"; box.textContent="Ruokasi: JavaScript-virhe\\n"+msg; }
-      window.addEventListener("error", function(e){
-        try{
-          const msg=(e&&e.message)?e.message:"Tuntematon virhe";
-          const src=(e&&e.filename)?("\\n"+e.filename+":"+(e.lineno||0)+":"+(e.colno||0)):"";
-          show(msg+src);
-        }catch(_){}
-      });
-      window.addEventListener("unhandledrejection", function(e){
-        try{ show("Promise-virhe: "+(e&&e.reason?String(e.reason):"tuntematon")); }catch(_){}
-      });
-    })();
-  </script>
-
-  <script src="app.js?v=20260204235421" defer></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', async () => {
-        try {
-          const reg = await navigator.serviceWorker.register('sw.js?v=20260204235421', { scope: './' });
-          try { reg.update(); } catch(_) {}
-        } catch(e) {}
-      });
-    }
-  </script>
+<script src="app.js"></script>
 </body>
 </html>
