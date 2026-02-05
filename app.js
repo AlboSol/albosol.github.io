@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION = "v3.5.0.4-nosw";
+const VERSION = "v3.5.0.4";
 const KCAL_PER_STEP=0.04;
 const $=id=>document.getElementById(id);
 
@@ -353,7 +353,7 @@ function updateRecKpi(){
 function render(){
   const d=state.selectedDay||todayKey();
   $("dateLabel").textContent=d;
-  $("dayKpi").textContent=d.split("-").reverse().join(".");
+  const dk=$("dayKpi"); if(dk) dk.textContent=d.split("-").reverse().join(".");
   const isToday=d===todayKey();
   $("todayLabel").textContent=isToday?"Tänään":"Päivä";
   $("pastHint").style.display=isToday?"none":"block";
