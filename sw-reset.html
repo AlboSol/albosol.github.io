@@ -4,4 +4,4 @@
 <script>(async()=>{const s=document.getElementById('s');try{s.textContent='Poistetaan service workerit…';if('serviceWorker'in navigator){for(const r of await navigator.serviceWorker.getRegistrations()){try{await r.unregister();}catch(e){}}}
 s.textContent='Poistetaan välimuistit…';if('caches'in window){for(const k of await caches.keys()){try{await caches.delete(k);}catch(e){}}}
 s.textContent='Valmis. Avataan Ruokasi…';}catch(e){s.textContent='Nollaus epäonnistui: '+(e&&e.message?e.message:e);}
-setTimeout(()=>location.href='/?v=20260204231145',800);})();</script></body></html>
+setTimeout(()=>location.href='/?v=20260204235421',700);})();</script></body></html>
