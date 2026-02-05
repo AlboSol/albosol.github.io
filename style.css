@@ -64,3 +64,9 @@ input,select{width:100%;min-height:48px;padding:12px 14px;border-radius:16px;bor
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(22,163,74,.22);border:1px solid rgba(22,163,74,.42);color:#eafff0;padding:10px 14px;border-radius:999px;font-weight:800;display:none;z-index:2000}
 @media (max-width:520px){.grid3{grid-template-columns:1fr}.summaryRow{grid-template-columns:140px 1fr}}
+
+.kpiRow2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.kpi.small{padding:12px 14px}
+.kpi.small .value{font-size:22px}
+.editbtn{width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;color:rgba(255,255,255,.9)}
+.editbtn:active{transform:translateY(1px)}
