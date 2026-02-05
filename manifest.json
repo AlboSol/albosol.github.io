@@ -1,16 +1,1 @@
-{
-  "name": "Ruokasi",
-  "short_name": "Ruokasi",
-  "start_url": "/Ruokas-v2/?v=3.2.4.6",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0A84FF",
-  "icons": [
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
-  "scope": "/Ruokas-v2/"
-}
+{"name": "Ruokasi", "short_name": "Ruokasi", "start_url": "/?v=20260204235421", "display": "standalone", "background_color": "#0b0b0f", "theme_color": "#0b0b0f", "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png"}]}
