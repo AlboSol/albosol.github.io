@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION="v3.5.0.0";
+const VERSION = "v3.5.0.1-hotfix";
 const KCAL_PER_STEP=0.04;
 const $=id=>document.getElementById(id);
 
@@ -365,7 +365,8 @@ function render(){
   const tot=dayTotals(d);
   const target=computedTarget();
   $("eatenKcal").textContent=tot.kcal;
-  $("eatenKpi").textContent=tot.kcal;
+  const _eatenKpiEl = $("eatenKpi");
+  if(_eatenKpiEl) _eatenKpiEl.textContent=tot.kcal;
   $("targetKcal").textContent=target;
   $("remainingKcal").textContent=Math.max(0,target-tot.kcal);
 
