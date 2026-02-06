@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION = "v3.5.0.7";
+const VERSION="v3.5.0.8";
 const KCAL_PER_STEP=0.04;
 const DUMMY=new Proxy({}, {
   get:(t,p)=>{
@@ -272,7 +272,8 @@ function init(){
   for(const m of MEALS){
     const b=document.createElement("button");
     b.className="pill"; b.textContent=m.label; b.dataset.key=m.key;
-    b.onclick=()=>{selectedMeal=m.key; render();};
+    b.onclick=()=>{selectedMeal=m.key; setupBreakdownUI();
+  render();};
     mp.appendChild(b);
   }
   // plan pills
@@ -970,3 +971,98 @@ function saveRecipe(){
 }
 
 
+
+
+// --- Breakdown (ring / macro bars) ---
+function dayItemsDetailed(day){
+  const log = (state.logs && state.logs[day]) ? state.logs[day] : [];
+  return log.map(e=>{
+    const prod = getProduct(e.productId);
+    const grams = prod ? unitToGrams(prod, e.qty, e.unit) : 0;
+    const m = prod ? macrosFor(prod, grams) : {kcal:0,p:0,c:0,f:0};
+    return { meal: e.meal, name: prod ? prod.name : "?", qty: e.qty, unit: e.unit, grams, kcal:m.kcal, p:m.p, c:m.c, f:m.f, e };
+  });
+}
+
+function metricLabel(metric){
+  if(metric==="kcal") return "kcal";
+  if(metric==="p") return "Proteiini (g)";
+  if(metric==="c") return "Hiilarit (g)";
+  if(metric==="f") return "Rasva (g)";
+  return metric;
+}
+
+function openBreakdownModal(metric){
+  const modal = document.getElementById("breakdownModal");
+  if(!modal) return;
+  const title = document.getElementById("bdTitle");
+  if(title) title.textContent = "Erittele: " + metricLabel(metric);
+
+  // active tab UI
+  const tabs = {kcal:"bdTabKcal", p:"bdTabP", c:"bdTabC", f:"bdTabF"};
+  Object.entries(tabs).forEach(([k,id])=>{
+    const b = document.getElementById(id);
+    if(!b) return;
+    b.classList.toggle("primary", k===metric);
+  });
+
+  const list = document.getElementById("bdList");
+  if(!list) return;
+
+  const day = state.day;
+  const items = dayItemsDetailed(day);
+  const total = items.reduce((s,it)=>s + (it[metric]||0), 0) || 0.00001;
+
+  // sort desc by metric
+  items.sort((a,b)=>(b[metric]||0)-(a[metric]||0));
+
+  list.innerHTML = items.map(it=>{
+    const val = it[metric]||0;
+    const pct = Math.round((val/total)*100);
+    const mealColor = (MEAL_COLORS && MEAL_COLORS[it.meal]) ? MEAL_COLORS[it.meal] : "#666";
+    const gramsTxt = it.grams ? (Math.round(it.grams) + " g") : "";
+    const qtyTxt = (it.qty!=null && it.unit) ? (it.qty + " " + it.unit) : "";
+    const valTxt = metric==="kcal" ? (Math.round(val) + " kcal") : (Math.round(val) + " g");
+    return `
+      <div class="card row" style="align-items:center; justify-content:space-between; gap:12px; padding:14px">
+        <div class="row" style="gap:10px; align-items:center; min-width:0">
+          <div style="width:10px;height:10px;border-radius:999px;background:${mealColor};flex:0 0 auto"></div>
+          <div style="min-width:0">
+            <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.name)}</div>
+            <div class="muted" style="font-size:13px">${escapeHtml(qtyTxt)}${gramsTxt?(" • "+gramsTxt):""} • ${pct}%</div>
+          </div>
+        </div>
+        <div style="font-weight:800">${valTxt}</div>
+      </div>
+    `;
+  }).join("");
+
+  openModal("breakdownModal");
+}
+
+function setupBreakdownUI(){
+  const bdClose = document.getElementById("bdClose");
+  if(bdClose) bdClose.onclick = ()=>closeModal("breakdownModal");
+
+  const tab = (metric)=>()=>openBreakdownModal(metric);
+  const tK = document.getElementById("bdTabKcal");
+  const tP = document.getElementById("bdTabP");
+  const tC = document.getElementById("bdTabC");
+  const tF = document.getElementById("bdTabF");
+  if(tK) tK.onclick = tab("kcal");
+  if(tP) tP.onclick = tab("p");
+  if(tC) tC.onclick = tab("c");
+  if(tF) tF.onclick = tab("f");
+
+  // ring click
+  const ring = document.getElementById("kpiSvg");
+  if(ring) ring.addEventListener("click", ()=>openBreakdownModal("kcal"));
+
+  // macro rows clicks
+  const pFill = document.getElementById("pFill");
+  const cFill = document.getElementById("cFill");
+  const fFill = document.getElementById("fFill");
+  if(pFill && pFill.closest(".macro")) pFill.closest(".macro").addEventListener("click", ()=>openBreakdownModal("p"));
+  if(cFill && cFill.closest(".macro")) cFill.closest(".macro").addEventListener("click", ()=>openBreakdownModal("c"));
+  if(fFill && fFill.closest(".macro")) fFill.closest(".macro").addEventListener("click", ()=>openBreakdownModal("f"));
+}
