@@ -79,14 +79,15 @@ input,select{width:100%;min-height:48px;padding:12px 14px;border-radius:16px;bor
 /* Day meals modal drilldown + swipe to delete */
 .rowbtn{background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.10);border-radius:18px;padding:12px;width:100%;text-align:left;color:inherit}
 .rowbtn:active{transform:scale(.99)}
-.swipeRow{position:relative;overflow:hidden;border-radius:18px}
-.swipeDelete{position:absolute;right:0;top:0;bottom:0;width:80px;border:0;background:rgba(220,38,38,.95);color:#fff;font-weight:700}
-.swipeContent{position:relative;z-index:1;transition:transform .18s ease}
+.swipeRow{position:relative;overflow:hidden;border-radius:18px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.10)}
+.swipeUnder{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;width:92px;opacity:0;pointer-events:none;transition:opacity .12s ease}
+.swipeUnder svg{width:22px;height:22px}
+.swipeUnderDelete{right:0;background:rgba(239,68,68,.85);color:#fff}
+.swipeUnderEdit{left:0;background:rgba(34,197,94,.75);color:#fff}
+.swipeContent{position:relative;z-index:1;transition:transform .18s ease;border:0;background:transparent}
 
 
 /* Day meals swipe list tweaks */
-#mealsModal .rowbtn{font-size:16px;}
-#mealsModal .rowbtn .meta{font-size:13px;}
+#mealsModal .rowbtn{font-size:17px;}
+#mealsModal .rowbtn .meta{font-size:14px;}
 #mealsModal .swipeRow{border-radius:16px;overflow:hidden;}
-#mealsModal .swipeDelete{background:transparent;}
-#mealsModal .swipeDelete .btn{width:92px;height:100%;border-radius:0;background:rgba(239,68,68,.85);border-color:rgba(239,68,68,.0);}

@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION = "v3.5.0.6";
+const VERSION = "v3.5.0.7";
 const KCAL_PER_STEP=0.04;
 const DUMMY=new Proxy({}, {
   get:(t,p)=>{
@@ -164,6 +164,24 @@ function loadState(){
 let state=loadState();
 let selectedMeal="aamiainen";
 let mealsView={level:"meals",meal:null};
+let pendingMealsReturn=null; // when opening qtyModal from mealsModal, return back after close
+
+function openQtyEditFromMeals(logIndex){
+  // Prevent nested modals on iOS: close meals modal, open qty modal, then return.
+  pendingMealsReturn={ mealsView: JSON.parse(JSON.stringify(mealsView)), selectedDay: state.selectedDay };
+  closeModal('mealsModal');
+  openQtyEdit(logIndex);
+}
+
+function closeQtyModal(){
+  closeModal('qtyModal');
+  if(pendingMealsReturn){
+    mealsView=pendingMealsReturn.mealsView;
+    state.selectedDay=pendingMealsReturn.selectedDay;
+    pendingMealsReturn=null;
+    openMealsModal(true);
+  }
+}
 let openSwipeRow=null; // currently revealed delete row in meals modal
 let editingProductId=null;
 let qtyContext=null;
@@ -322,7 +340,7 @@ function init(){
   $("prodDelete").onclick=()=>deleteProduct();
   $("offSearchBtn").onclick=()=>offSearch();
 
-  $("qtyCancel").onclick=()=>closeModal("qtyModal");
+  $("qtyCancel").onclick=()=>closeQtyModal();
   $("qtyConfirm").onclick=()=>confirmQty();
   $("qtyMinus").onclick=()=>stepQty(-1);
   $("qtyPlus").onclick=()=>stepQty(1);
@@ -575,10 +593,10 @@ function confirmQty(){
   if(qtyContext.mode==="edit"){
     const e=log[qtyContext.entryIndex];
     if(e){ e.qty=qty; e.unit=prod.unit; e.meal=qtyContext.meal; }
-    saveState(); closeModal("qtyModal"); toast("Päivitetty"); render();
+    saveState(); closeQtyModal(); toast("Päivitetty"); render();
   } else {
     log.push({productId:qtyContext.productId,qty,unit:prod.unit,meal:qtyContext.meal,ts:Date.now()});
-    saveState(); closeModal("qtyModal"); toast("Lisätty"); render();
+    saveState(); closeQtyModal(); toast("Lisätty"); render();
   }
 }
 function deleteQty(){
@@ -586,7 +604,7 @@ function deleteQty(){
   if(!confirm("Poistetaanko tämä kirjattu ruoka?")) return;
   const log=ensureDayLog(qtyContext.date);
   log.splice(qtyContext.entryIndex,1);
-  saveState(); closeModal("qtyModal"); toast("Poistettu"); render();
+  saveState(); closeQtyModal(); toast("Poistettu"); render();
 }
 
 
@@ -604,10 +622,10 @@ function deleteLogEntry(entryIndex){
 
 
 
-function openMealsModal(){
-  mealsView={level:"meals", meal:null};
-  renderMealsModal();
+function openMealsModal(preserveView=false){
+  if(!preserveView) mealsView={level:"meals", meal:null};
   openModal("mealsModal");
+  renderMealsModal();
 }
 function renderMealsModal(){
   const d=state.selectedDay;
@@ -649,12 +667,24 @@ function renderMealsModal(){
       const prod=getProduct(e.productId); if(!prod) return;
       const g=unitToGrams(prod,e.qty,e.unit);
       const mm=macrosFor(prod,g);
-      // Swipe-to-delete row (reveal delete on left swipe, tap delete to confirm)
+      // Swipe actions: left = delete, right = edit
       const wrap=document.createElement("div");
       wrap.className="swipeRow";
+
+      const edit=document.createElement("button");
+      edit.className="swipeUnder swipeEdit";
+      edit.setAttribute("aria-label","Muokkaa");
+      edit.innerHTML=`<span class="swipeIcon">✎</span><span class="swipeText">Muokkaa</span>`;
+      edit.addEventListener("click",(ev)=>{
+        ev.stopPropagation();
+        closeSwipeRow(wrap);
+        openQtyEditFromMeals(idx);
+      });
+
       const del=document.createElement("button");
-      del.className="swipeDelete";
-      del.textContent="Poista";
+      del.className="swipeUnder swipeDelete";
+      del.setAttribute("aria-label","Poista");
+      del.innerHTML=`<span class="swipeIcon">🗑</span>`;
       del.addEventListener("click",(ev)=>{
         ev.stopPropagation();
         if(openSwipeRow && openSwipeRow!==wrap){ closeSwipeRow(openSwipeRow); }
@@ -667,12 +697,14 @@ function renderMealsModal(){
         <div><b>${prod.name}</b><div class="muted">${r1(e.qty)} ${e.unit} • ${Math.round(mm.p)}P ${Math.round(mm.c)}C ${Math.round(mm.f)}F</div></div>
         <div style="text-align:right"><b>${Math.round(mm.kcal)}</b> kcal</div>
       </div>`;
+      // Tap name / row = edit (if no swipe open)
       btn.addEventListener("click",()=>{
-        if(wrap.dataset.open==="1"){ closeSwipeRow(wrap); return; }
-        openQtyEdit(idx);
+        if(wrap.dataset.open && wrap.dataset.open!=="0"){ closeSwipeRow(wrap); return; }
+        openQtyEditFromMeals(idx);
       });
 
-      setupSwipeRow(wrap, btn);
+      setupSwipeRow(wrap, btn, edit, del);
+      wrap.appendChild(edit);
       wrap.appendChild(del);
       wrap.appendChild(btn);
       cont.appendChild(wrap);
@@ -780,14 +812,28 @@ function closeSwipeRow(wrap){
   if(!wrap) return;
   const btn=wrap.querySelector(".swipeContent");
   if(btn) btn.style.transform="translateX(0px)";
-  wrap.dataset.open="0";
+  wrap.dataset.open="";
+  const del=wrap.querySelector('.swipeUnderDelete');
+  const edit=wrap.querySelector('.swipeUnderEdit');
+  if(del) del.style.opacity='0';
+  if(edit) edit.style.opacity='0';
   if(openSwipeRow===wrap) openSwipeRow=null;
 }
 
 function setupSwipeRow(wrap, btn){
   let x0=null, dragging=false;
-  const MAX=80;
-  const TH=40;
+  const MAX=84;
+  const TH=42;
+
+  const del=wrap.querySelector('.swipeUnderDelete');
+  const edit=wrap.querySelector('.swipeUnderEdit');
+
+  const setTX=(tx)=>{
+    btn.style.transform = `translateX(${tx}px)`;
+    // Fade in the appropriate underlay while dragging
+    if(del) del.style.opacity = tx<0 ? String(Math.min(1, Math.abs(tx)/30)) : '0';
+    if(edit) edit.style.opacity = tx>0 ? String(Math.min(1, Math.abs(tx)/30)) : '0';
+  };
 
   const onStart = (x)=>{
     x0=x; dragging=false;
@@ -796,24 +842,25 @@ function setupSwipeRow(wrap, btn){
   const onMove = (x)=>{
     if(x0==null) return;
     const dx=x-x0;
-    if(dx>10) dragging=true;
-    if(dx< -5) dragging=true;
+    if(Math.abs(dx)>10) dragging=true;
     if(!dragging) return;
-    const tx = Math.max(-MAX, Math.min(0, dx));
-    btn.style.transform = `translateX(${tx}px)`;
+    const tx = Math.max(-MAX, Math.min(MAX, dx));
+    setTX(tx);
   };
   const onEnd = ()=>{
     if(x0==null) return;
     const m = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(btn.style.transform||"");
     const tx = m ? parseFloat(m[1]) : 0;
     if(tx <= -TH){
-      btn.style.transform = `translateX(-${MAX}px)`;
-      wrap.dataset.open="1";
+      setTX(-MAX);
+      wrap.dataset.open="del";
+      openSwipeRow=wrap;
+    }else if(tx >= TH){
+      setTX(MAX);
+      wrap.dataset.open="edit";
       openSwipeRow=wrap;
     }else{
-      btn.style.transform="translateX(0px)";
-      wrap.dataset.open="0";
-      if(openSwipeRow===wrap) openSwipeRow=null;
+      closeSwipeRow(wrap);
     }
     x0=null; dragging=false;
   };
