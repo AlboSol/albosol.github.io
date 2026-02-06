@@ -1,7 +1,7 @@
 
-// Ruokasi baseline v3.4.0.0 (build 20260204235421)
+// Ruokasi baseline v3.5.1.1 (build 20260206184824)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION="v3.5.1.0";
+const VERSION="v3.5.1.1";
 const KCAL_PER_STEP=0.04;
 const DUMMY=new Proxy({}, {
   get:(t,p)=>{
