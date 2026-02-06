@@ -20,8 +20,8 @@
         <div style="min-width:0">
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
             <h1 style="min-width:0;overflow:visible">Ruokasi</h1>
-</div>
-          <div class="subline"><span id="versionBadge" class="version">v</span></div>
+          </div>
+          <div id="subline" class="subline"><span id="versionBadge" class="subversion">v3.4.0.0</span></div>
         </div>
       </div>
       <div class="actions">
@@ -58,7 +58,7 @@
         </div>
 
         
-        <div class="grid3" id="kpiRow">
+        <div class="grid2" id="kpiRow">
           <div class="kpi" id="goalKpi" style="cursor:pointer">
             <div class="label">Päivän tavoite</div>
             <div class="value"><span id="targetKcal">0</span><span class="unit">kcal</span></div>
@@ -68,8 +68,9 @@
             <div class="label">Suositus</div>
             <div class="value"><span id="recKpiMeal">—</span></div>
             <div class="sub"><span id="recKpiKcal">—</span> kcal</div>
+            <div class="note" id="recKpiNote" style="margin-top:6px;color:var(--muted);font-size:12px;line-height:1.2"></div>
           </div>
-</div>
+        </div>
 
         <div class="macro">
 
@@ -90,12 +91,17 @@
     <div class="section card">
       <h3>Lisää ruokaa</h3>
       <div class="body">
-        <div class="pills" id="mealPills"></div>
+        <div class="row" id="addControls" style="gap:10px;align-items:center;flex-wrap:wrap">
+          <select id="mealSelect" class="select"></select>
+          <button id="addProductBtn" class="btn">+ Lisää</button>
+          <select id="addModeSelect" class="select selectSmall" title="Valitse lisäystapa">
+            <option value="food">Lisää ruoka</option>
+            <option value="recipe">Lisää ateria</option>
+          </select>
+        </div>
         <div id="productHint" style="margin-top:12px;color:var(--muted)">Valitse tuote listalta.</div>
         <div class="list" id="productList"></div>
-        <div style="margin-top:12px">
-          <div style="display:flex;gap:8px;align-items:center"><button id="addProductBtn" class="btn">+ Lisää tuote</button><button id="recipeBtn" class="btn iconbtn" title="Tee resepti">▾</button></div>
-        </div>
+        <!-- Add controls moved above -->
       </div>
     </div>
 

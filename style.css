@@ -15,6 +15,11 @@ html,body{margin:0;padding:0;background:radial-gradient(1200px 800px at 20% 0%, 
 .btn.ok{background:rgba(22,163,74,.22);border-color:rgba(22,163,74,.42)}
 .btn.danger{background:rgba(239,68,68,.20);border-color:rgba(239,68,68,.42)}
 .btn.primary{background:rgba(59,130,246,.22);border-color:rgba(59,130,246,.40)}
+
+.select{min-height:var(--tap);padding:10px 38px 10px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);color:var(--text);font-weight:650;font-size:14px;letter-spacing:.2px;outline:none;-webkit-appearance:none;appearance:none;position:relative}
+.select:focus{border-color:rgba(59,130,246,.55);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.selectSmall{padding-right:34px;font-size:13px}
+.select{background-image:linear-gradient(45deg,transparent 50%,rgba(255,255,255,.6) 50%),linear-gradient(135deg,rgba(255,255,255,.6) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%;background-size:6px 6px,6px 6px;background-repeat:no-repeat}
 .iconbtn{width:var(--tap);height:var(--tap);padding:0;border-radius:16px}
 .card{background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.10);border-radius:var(--radius);box-shadow:var(--shadow)}
 .card .inner{padding:var(--pad)}
@@ -29,6 +34,7 @@ html,body{margin:0;padding:0;background:radial-gradient(1200px 800px at 20% 0%, 
 .remaining b{display:block;font-size:40px;color:var(--text);line-height:1.05}
 .link{color:rgba(255,255,255,.85);text-decoration:underline;text-underline-offset:4px;font-weight:700}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
 .kpi{background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.10);border-radius:18px;padding:14px}
 .kpi .label{color:var(--muted2);font-size:13px}
 .kpi .value{margin-top:6px;font-size:26px;font-weight:750}
@@ -63,7 +69,7 @@ input,select{width:100%;min-height:48px;padding:12px 14px;border-radius:16px;bor
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(22,163,74,.22);border:1px solid rgba(22,163,74,.42);color:#eafff0;padding:10px 14px;border-radius:999px;font-weight:800;display:none;z-index:2000}
-@media (max-width:520px){.grid3{grid-template-columns:1fr}.summaryRow{grid-template-columns:140px 1fr}}
+@media (max-width:520px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.summaryRow{grid-template-columns:140px 1fr}}
 
 .kpi .sub{margin-top:6px;color:var(--muted);font-size:12px}
 
@@ -72,4 +78,6 @@ input,select{width:100%;min-height:48px;padding:12px 14px;border-radius:16px;bor
 .recipeRow .mini{width:84px}
 .recipeRow .rm{width:44px}
 
-.version{font-size:12px;color:rgba(255,255,255,.55);}
+
+/* Version under title (subtle) */
+.subversion{font-size:12px;opacity:.75;letter-spacing:.2px}
