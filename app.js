@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION = "v3.5.0.5";
+const VERSION = "v3.5.0.6";
 const KCAL_PER_STEP=0.04;
 const DUMMY=new Proxy({}, {
   get:(t,p)=>{
@@ -164,6 +164,7 @@ function loadState(){
 let state=loadState();
 let selectedMeal="aamiainen";
 let mealsView={level:"meals",meal:null};
+let openSwipeRow=null; // currently revealed delete row in meals modal
 let editingProductId=null;
 let qtyContext=null;
 
@@ -589,6 +590,20 @@ function deleteQty(){
 }
 
 
+
+function deleteLogEntry(entryIndex){
+  const d=state.selectedDay;
+  const log=ensureDayLog(d);
+  if(entryIndex<0||entryIndex>=log.length) return;
+  log.splice(entryIndex,1);
+  saveState();
+  toast("Poistettu");
+  render();
+  if(isModalOpen("mealsModal")) renderMealsModal();
+}
+
+
+
 function openMealsModal(){
   mealsView={level:"meals", meal:null};
   renderMealsModal();
@@ -634,14 +649,33 @@ function renderMealsModal(){
       const prod=getProduct(e.productId); if(!prod) return;
       const g=unitToGrams(prod,e.qty,e.unit);
       const mm=macrosFor(prod,g);
-      const row=document.createElement("button");
-      row.className="rowbtn";
-      row.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      // Swipe-to-delete row (reveal delete on left swipe, tap delete to confirm)
+      const wrap=document.createElement("div");
+      wrap.className="swipeRow";
+      const del=document.createElement("button");
+      del.className="swipeDelete";
+      del.textContent="Poista";
+      del.addEventListener("click",(ev)=>{
+        ev.stopPropagation();
+        if(openSwipeRow && openSwipeRow!==wrap){ closeSwipeRow(openSwipeRow); }
+        deleteLogEntry(idx);
+      });
+
+      const btn=document.createElement("button");
+      btn.className="rowbtn swipeContent";
+      btn.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div><b>${prod.name}</b><div class="muted">${r1(e.qty)} ${e.unit} • ${Math.round(mm.p)}P ${Math.round(mm.c)}C ${Math.round(mm.f)}F</div></div>
         <div style="text-align:right"><b>${Math.round(mm.kcal)}</b> kcal</div>
       </div>`;
-      row.addEventListener("click",()=>openQtyEdit(idx));
-      cont.appendChild(row);
+      btn.addEventListener("click",()=>{
+        if(wrap.dataset.open==="1"){ closeSwipeRow(wrap); return; }
+        openQtyEdit(idx);
+      });
+
+      setupSwipeRow(wrap, btn);
+      wrap.appendChild(del);
+      wrap.appendChild(btn);
+      cont.appendChild(wrap);
     });
   }
 }
@@ -739,6 +773,54 @@ function setupSwipeToClose(modalId, closeBtnId){
   modal.addEventListener("click",(ev)=>{ if(ev.target===modal) closeModal(modalId); });
   const btn=$(closeBtnId);
   if(btn) btn.addEventListener("click",()=>closeModal(modalId));
+}
+
+
+function closeSwipeRow(wrap){
+  if(!wrap) return;
+  const btn=wrap.querySelector(".swipeContent");
+  if(btn) btn.style.transform="translateX(0px)";
+  wrap.dataset.open="0";
+  if(openSwipeRow===wrap) openSwipeRow=null;
+}
+
+function setupSwipeRow(wrap, btn){
+  let x0=null, dragging=false;
+  const MAX=80;
+  const TH=40;
+
+  const onStart = (x)=>{
+    x0=x; dragging=false;
+    if(openSwipeRow && openSwipeRow!==wrap){ closeSwipeRow(openSwipeRow); }
+  };
+  const onMove = (x)=>{
+    if(x0==null) return;
+    const dx=x-x0;
+    if(dx>10) dragging=true;
+    if(dx< -5) dragging=true;
+    if(!dragging) return;
+    const tx = Math.max(-MAX, Math.min(0, dx));
+    btn.style.transform = `translateX(${tx}px)`;
+  };
+  const onEnd = ()=>{
+    if(x0==null) return;
+    const m = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(btn.style.transform||"");
+    const tx = m ? parseFloat(m[1]) : 0;
+    if(tx <= -TH){
+      btn.style.transform = `translateX(-${MAX}px)`;
+      wrap.dataset.open="1";
+      openSwipeRow=wrap;
+    }else{
+      btn.style.transform="translateX(0px)";
+      wrap.dataset.open="0";
+      if(openSwipeRow===wrap) openSwipeRow=null;
+    }
+    x0=null; dragging=false;
+  };
+
+  btn.addEventListener("touchstart",(ev)=>{ if(ev.touches&&ev.touches.length) onStart(ev.touches[0].clientX); },{passive:true});
+  btn.addEventListener("touchmove",(ev)=>{ if(ev.touches&&ev.touches.length) onMove(ev.touches[0].clientX); },{passive:true});
+  btn.addEventListener("touchend",()=>onEnd(),{passive:true});
 }
 
 
