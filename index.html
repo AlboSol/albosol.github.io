@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="fi">
 <head>
-<!-- build 20260206173928 -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0b0f" />
@@ -9,7 +8,7 @@
   <link rel="manifest" href="manifest.json?v=20260204235421">
   <link rel="icon" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
-  <link rel="stylesheet" href="style.css?v=20260206173928">
+  <link rel="stylesheet" href="style.css?v=20260204235421">
 </head>
 <body>
   <div id="__err_overlay" style="display:none;position:fixed;inset:12px 12px auto 12px;background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.55);color:#fff;padding:12px;border-radius:14px;font-family:system-ui,-apple-system;font-size:13px;line-height:1.25;z-index:99999;white-space:pre-wrap"></div>
@@ -239,7 +238,9 @@
           <input id="qtyValue" type="number" inputmode="decimal" />
           <button id="qtyPlus" class="btn iconbtn">+</button>
         </div>
-        <div style="margin-top:14px"><button id="qtyDelete" class="btn danger" style="display:none">🗑 Poista tästä päivästä</button></div>
+        <div style="margin-top:14px">
+          <button id="qtyDelete" class="btn danger" style="display:none" title="Poista tästä päivästä" aria-label="Poista tästä päivästä">🗑</button>
+        </div>
       </div>
     </div>
   </div>
@@ -307,16 +308,6 @@
     })();
   </script>
 
-  <script src="app.js?v=20260206173928" defer></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', async () => {
-        try {
-          const reg = await navigator.serviceWorker.register('sw.js?v=20260204235421', { scope: './' });
-          try { reg.update(); } catch(_) {}
-        } catch(e) {}
-      });
-    }
-  </script>
+  <script src="app.js?v=20260206195000" defer></script>
 </body>
 </html>

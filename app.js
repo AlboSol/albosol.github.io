@@ -1,7 +1,7 @@
 
 // Ruokasi baseline v3.4.0.0 (build 20260204235421)
 const STORAGE_KEY="ruokasi.v2";
-const VERSION="v3.5.0.8-cachefix";
+const VERSION="v3.5.1.0";
 const KCAL_PER_STEP=0.04;
 const DUMMY=new Proxy({}, {
   get:(t,p)=>{
@@ -325,6 +325,23 @@ function init(){
 
   $("dayMealsLink").onclick=()=>openMealsModal();
 
+  // In qty modal: tapping the product name opens product editor (kcal/100g + macros)
+  if(exists('qtyTitle')){
+    $('qtyTitle').style.cursor = 'pointer';
+    $('qtyTitle').title = 'Muokkaa tuotteen arvoja';
+    $('qtyTitle').addEventListener('click', ()=>{
+      try{
+        if(!qtyContext) return;
+        const prod = getProduct(qtyContext.productId);
+        if(!prod) return;
+        closeQtyModal();
+        editingProductId = prod.id;
+        fillProductForm(prod);
+        openModal('productModal');
+      }catch(e){}
+    });
+  }
+
   $("addProductBtn").onclick=()=>{
     editingProductId=null;
     fillProductForm(null);
@@ -455,7 +472,8 @@ function renderRingSegments(target, byMeal){
     c.setAttribute("stroke", seg.color);
     c.setAttribute("stroke-width","12");
     c.setAttribute("fill","none");
-    c.setAttribute("stroke-linecap","round");
+    // Use butt caps so segment order/colors match macro bars visually (no rounded overlap)
+    c.setAttribute("stroke-linecap","butt");
     c.setAttribute("stroke-dasharray", `${len} ${circ}`);
     // rotate -90deg and apply cumulative offset
     c.setAttribute("transform", "rotate(-90 60 60)");
@@ -814,8 +832,8 @@ function closeSwipeRow(wrap){
   const btn=wrap.querySelector(".swipeContent");
   if(btn) btn.style.transform="translateX(0px)";
   wrap.dataset.open="";
-  const del=wrap.querySelector('.swipeUnderDelete');
-  const edit=wrap.querySelector('.swipeUnderEdit');
+  const del=wrap.querySelector('.swipeDelete');
+  const edit=wrap.querySelector('.swipeEdit');
   if(del) del.style.opacity='0';
   if(edit) edit.style.opacity='0';
   if(openSwipeRow===wrap) openSwipeRow=null;
@@ -826,8 +844,8 @@ function setupSwipeRow(wrap, btn){
   const MAX=84;
   const TH=42;
 
-  const del=wrap.querySelector('.swipeUnderDelete');
-  const edit=wrap.querySelector('.swipeUnderEdit');
+  const del=wrap.querySelector('.swipeDelete');
+  const edit=wrap.querySelector('.swipeEdit');
 
   const setTX=(tx)=>{
     btn.style.transform = `translateX(${tx}px)`;
@@ -1054,9 +1072,12 @@ function setupBreakdownUI(){
   if(tC) tC.onclick = tab("c");
   if(tF) tF.onclick = tab("f");
 
-  // ring click
-  const ring = document.getElementById("kpiSvg");
-  if(ring) ring.addEventListener("click", ()=>openBreakdownModal("kcal"));
+  // ring click (SVG in dashboard)
+  const ringSvg = document.querySelector('.ringWrap svg');
+  if(ringSvg){
+    ringSvg.style.cursor = 'pointer';
+    ringSvg.addEventListener('click', ()=>openBreakdownModal('kcal'));
+  }
 
   // macro rows clicks
   const pFill = document.getElementById("pFill");
