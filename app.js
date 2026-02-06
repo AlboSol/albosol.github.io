@@ -3,7 +3,21 @@
 const STORAGE_KEY="ruokasi.v2";
 const VERSION = "v3.5.0.5";
 const KCAL_PER_STEP=0.04;
-const $=id=>document.getElementById(id);
+const DUMMY=new Proxy({}, {
+  get:(t,p)=>{
+    if(p==="classList") return {add(){},remove(){},toggle(){},contains(){return false}};
+    if(p==="style") return {};
+    if(["appendChild","removeChild","insertAdjacentHTML","scrollIntoView"].includes(p)) return ()=>{};
+    if(["addEventListener","removeEventListener","setAttribute","removeAttribute","focus","blur"].includes(p)) return ()=>{};
+    if(p==="querySelector") return ()=>null;
+    if(p==="querySelectorAll") return ()=>[];
+    if(p==="getBoundingClientRect") return ()=>({left:0,top:0,width:0,height:0});
+    return t[p];
+  },
+  set:(t,p,v)=>{ t[p]=v; return true; }
+});
+const exists=(id)=>!!document.getElementById(id);
+const $=id=>document.getElementById(id)||DUMMY;
 
 const MEAL_COLORS={
   "aamiainen":"#2F7BFF",
@@ -149,7 +163,6 @@ function loadState(){
 }
 let state=loadState();
 let selectedMeal="aamiainen";
-let addMode="food"; // "food" | "recipe"
 let mealsView={level:"meals",meal:null};
 let editingProductId=null;
 let qtyContext=null;
@@ -235,27 +248,14 @@ function setActivePill(containerId,key){
 function init(){
   $("versionBadge").textContent=VERSION;
 
-  // meal select
-  const ms=$("mealSelect");
-  ms.innerHTML="";
+  // meal pills
+  const mp=$("mealPills"); mp.innerHTML="";
   for(const m of MEALS){
-    const o=document.createElement("option");
-    o.value=m.key; o.textContent=m.label;
-    ms.appendChild(o);
+    const b=document.createElement("button");
+    b.className="pill"; b.textContent=m.label; b.dataset.key=m.key;
+    b.onclick=()=>{selectedMeal=m.key; render();};
+    mp.appendChild(b);
   }
-  ms.value=selectedMeal;
-  ms.onchange=()=>{selectedMeal=ms.value; render();};
-
-  // add mode (ruoka/ateria)
-  const am=$("addModeSelect");
-  am.value=addMode;
-  am.onchange=()=>{addMode=am.value;};
-
-  // add button routes to correct modal
-  $("addProductBtn").onclick=()=>{
-    if(addMode==="recipe") openRecipeModal();
-    else openAddProductModal();
-  };
   // plan pills
   const pp=$("planPills"); pp.innerHTML="";
   for(const k of ["aamiainen","lounas","välipala","päivällinen","iltapala"]){
@@ -306,16 +306,16 @@ function init(){
   $("dayMealsLink").onclick=()=>openMealsModal();
 
   $("addProductBtn").onclick=()=>{
-    if(addMode==="recipe") return openRecipeModal();
     editingProductId=null;
     fillProductForm(null);
     openModal("productModal");
   };
-  if($("recipeClose")) $("recipeClose").onclick=()=>closeModal("recipeModal");
-  if($("recipeCancel")) $("recipeCancel").onclick=()=>closeModal("recipeModal");
-  if($("recipeAddItem")) $("recipeAddItem").onclick=addRecipeItem;
-  if($("recipeSave")) $("recipeSave").onclick=saveRecipe;
-  if($("recKpi")) $("recKpi").onclick=()=>{ const sec=document.querySelector(".section.card h3"); const s=document.querySelector(".section.card"); if(s) s.scrollIntoView({behavior:"smooth",block:"start"}); };
+  if(exists("recipeBtn")) $("recipeBtn").onclick=openRecipeModal;
+  if(exists("recipeClose")) $("recipeClose").onclick=()=>closeModal("recipeModal");
+  if(exists("recipeCancel")) $("recipeCancel").onclick=()=>closeModal("recipeModal");
+  if(exists("recipeAddItem")) $("recipeAddItem").onclick=addRecipeItem;
+  if(exists("recipeSave")) $("recipeSave").onclick=saveRecipe;
+  if(exists("recKpi")) $("recKpi").onclick=()=>{ const sec=document.querySelector(".section.card h3"); const s=document.querySelector(".section.card"); if(s) s.scrollIntoView({behavior:"smooth",block:"start"}); };
   $("prodCancel").onclick=()=>closeModal("productModal");
   $("prodSave").onclick=()=>saveProductFromForm();
   $("prodDelete").onclick=()=>deleteProduct();
@@ -358,37 +358,20 @@ function updateRecKpi(){
   const label = (MEALS.find(m=>m.key===k)?.label)||"—";
   $("recKpiMeal").textContent = label;
   // simple kcal hint: remaining / remainingMealsCount
-  const tot = dayTotals(state.selectedDay);
-  const rem = Math.max(0, currentTargetKcal() - tot.kcal);
+  const rem = Math.max(0, currentTargetKcal() - dayTotals(state.selectedDay).kcal);
   const remainingMeals = MEALS.filter(m=>state.mealPlan?.[m.key]).length || 1;
   const hint = Math.round(rem / remainingMeals);
   $("recKpiKcal").textContent = String(hint);
-
-  // note: highlight what is most missing today
-  const goals = state.goals||{p:0,c:0,f:0};
-  const remP = Math.max(0,(goals.p||0) - tot.p);
-  const remC = Math.max(0,(goals.c||0) - tot.c);
-  const remF = Math.max(0,(goals.f||0) - tot.f);
-  let note = "";
-  const maxVal = Math.max(remP, remC, remF);
-  if(maxVal>0){
-    if(maxVal===remP) note = "Päivästä puuttuu proteiinia";
-    else if(maxVal===remC) note = "Päivästä puuttuu hiilareita";
-    else note = "Päivästä puuttuu rasvaa";
-  }
-  const nEl=$("recKpiNote");
-  if(nEl) nEl.textContent = note;
 }
 
 function render(){
   const d=state.selectedDay||todayKey();
   $("dateLabel").textContent=d;
-  const _dayKpiEl=$("dayKpi"); if(_dayKpiEl) _dayKpiEl.textContent=d.split("-").reverse().join(".");
+  const dk=$("dayKpi"); if(dk) dk.textContent=d.split("-").reverse().join(".");
   const isToday=d===todayKey();
   $("todayLabel").textContent=isToday?"Tänään":"Päivä";
   $("pastHint").style.display=isToday?"none":"block";
-  const ms=$("mealSelect"); if(ms) ms.value=selectedMeal;
-  const am=$("addModeSelect"); if(am) am.value=addMode;
+  setActivePill("mealPills",selectedMeal);
 
   [...$("planPills").querySelectorAll(".pill")].forEach(p=>{
     const on=!!state.mealPlan[p.dataset.key];
